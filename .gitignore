@@ -1,0 +1,11 @@
+.vscode
+.cursorignore
+.env
+project_requirements.txt
+project_description.txt
+/docs/
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
