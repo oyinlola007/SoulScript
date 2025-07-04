@@ -14,6 +14,7 @@ const items = [
 
 interface SidebarItemsProps {
   onClose?: () => void
+  isCollapsed?: boolean
 }
 
 interface Item {
@@ -22,7 +23,7 @@ interface Item {
   path: string
 }
 
-const SidebarItems = ({ onClose }: SidebarItemsProps) => {
+const SidebarItems = ({ onClose, isCollapsed = false }: SidebarItemsProps) => {
   const queryClient = useQueryClient()
   const currentUser = queryClient.getQueryData<UserPublic>(["currentUser"])
 
@@ -41,20 +42,18 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
         }}
         alignItems="center"
         fontSize="sm"
+        title={isCollapsed ? title : undefined}
       >
-        <Icon as={icon} alignSelf="center" />
-        <Text ml={2}>{title}</Text>
+        <Icon as={icon} alignSelf="center" fontSize="lg" />
+        {!isCollapsed && <Text ml={2}>{title}</Text>}
       </Flex>
     </RouterLink>
   ))
 
   return (
-    <>
-      <Text fontSize="xs" px={4} py={2} fontWeight="bold">
-        Menu
-      </Text>
-      <Box>{listItems}</Box>
-    </>
+    <Box>
+      {listItems}
+    </Box>
   )
 }
 

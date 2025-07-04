@@ -1,7 +1,7 @@
 import { Box, Flex, IconButton, Text } from "@chakra-ui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-import { FaBars } from "react-icons/fa"
+import { FaBars, FaChevronLeft, FaChevronRight } from "react-icons/fa"
 import { FiLogOut } from "react-icons/fi"
 
 import type { UserPublic } from "@/client"
@@ -21,6 +21,7 @@ const Sidebar = () => {
   const currentUser = queryClient.getQueryData<UserPublic>(["currentUser"])
   const { logout } = useAuth()
   const [open, setOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
     <>
@@ -82,12 +83,30 @@ const Sidebar = () => {
         position="sticky"
         bg="bg.subtle"
         top={0}
-        minW="xs"
+        minW={isCollapsed ? "80px" : "xs"}
+        w={isCollapsed ? "80px" : "xs"}
         h="100vh"
         p={4}
+        transition="all 0.3s ease"
       >
-        <Box w="100%">
-          <SidebarItems />
+        <Box w="100%" position="relative">
+          <IconButton
+            position="absolute"
+            top={2}
+            right={isCollapsed ? "50%" : -3}
+            transform={isCollapsed ? "translateX(50%)" : "none"}
+            size="md"
+            variant="ghost"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            zIndex={10}
+            fontSize="lg"
+          >
+            {isCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
+          </IconButton>
+          <Box pt={12}>
+            <SidebarItems isCollapsed={isCollapsed} />
+          </Box>
         </Box>
       </Box>
     </>

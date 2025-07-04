@@ -9,3 +9,5 @@ node_modules/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+*.ipynb
+.DS_Store
