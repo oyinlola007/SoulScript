@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
@@ -44,6 +45,9 @@ class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
+    pdf_documents: list["PDFDocument"] = Relationship(
+        back_populates="owner", cascade_delete=True
+    )
 
 
 # Properties to return via API, id is always required
@@ -111,3 +115,48 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=40)
+
+
+# PDF Document Models
+class PDFDocumentBase(SQLModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=500)
+    filename: str = Field(max_length=255)
+    file_size: int = Field(ge=0)
+    page_count: int = Field(ge=0)
+    is_processed: bool = Field(default=False)
+    processing_status: str = Field(
+        default="pending", max_length=50
+    )  # pending, processing, completed, failed
+    error_message: str | None = Field(default=None, max_length=1000)
+
+
+class PDFDocumentCreate(PDFDocumentBase):
+    pass
+
+
+class PDFDocumentUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=500)
+
+
+class PDFDocument(PDFDocumentBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    )
+    owner: User | None = Relationship(back_populates="pdf_documents")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PDFDocumentPublic(PDFDocumentBase):
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class PDFDocumentsPublic(SQLModel):
+    data: list[PDFDocumentPublic]
+    count: int

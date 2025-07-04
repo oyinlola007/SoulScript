@@ -1,10 +1,12 @@
-import { Badge, Container, Flex, Heading, Table } from "@chakra-ui/react"
+import { Badge, Container, Flex, Heading, Table, Tabs } from "@chakra-ui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
 import { type UserPublic, UsersService } from "@/client"
 import AddUser from "@/components/Admin/AddUser"
+import AddPdfUpload from "@/components/Admin/AddPdfUpload"
+import PdfList from "@/components/Admin/PdfList"
 import { UserActionsMenu } from "@/components/Common/UserActionsMenu"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import {
@@ -116,12 +118,26 @@ function UsersTable() {
 function Admin() {
   return (
     <Container maxW="full">
-      <Heading size="lg" pt={12}>
-        Users Management
+      <Heading size="lg" pt={12} mb={6}>
+        Admin Dashboard
       </Heading>
 
+      <Tabs.Root defaultValue="users" variant="subtle">
+        <Tabs.List>
+          <Tabs.Trigger value="users">Users Management</Tabs.Trigger>
+          <Tabs.Trigger value="pdfs">PDF Documents</Tabs.Trigger>
+        </Tabs.List>
+        
+        <Tabs.Content value="users">
       <AddUser />
       <UsersTable />
+        </Tabs.Content>
+        
+        <Tabs.Content value="pdfs">
+          <AddPdfUpload />
+          <PdfList />
+        </Tabs.Content>
+      </Tabs.Root>
     </Container>
   )
 }
