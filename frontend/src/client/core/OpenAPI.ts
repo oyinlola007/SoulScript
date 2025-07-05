@@ -41,7 +41,7 @@ export type OpenAPIConfig = {
 }
 
 export const OpenAPI: OpenAPIConfig = {
-  BASE: "",
+  BASE: "http://api.localhost",
   CREDENTIALS: "include",
   ENCODE_PATH: undefined,
   HEADERS: undefined,
