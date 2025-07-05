@@ -193,6 +193,11 @@ class ChatSession(ChatSessionBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Summary fields for ConversationSummaryBufferMemory
+    conversation_summary: str = Field(default="", max_length=5000)
+    summary_updated_at: datetime = Field(default_factory=datetime.utcnow)
+    last_summary_message_id: str = Field(default="")
+
 
 class ChatSessionPublic(ChatSessionBase):
     id: uuid.UUID
@@ -211,8 +216,9 @@ class ChatMessageBase(SQLModel):
     role: str = Field(max_length=20)  # "user" or "assistant"
 
 
-class ChatMessageCreate(ChatMessageBase):
-    session_id: uuid.UUID
+class ChatMessageCreate(SQLModel):
+    content: str = Field(min_length=1)
+    role: str = Field(default="user", max_length=20)  # "user" or "assistant"
 
 
 class ChatMessage(ChatMessageBase, table=True):

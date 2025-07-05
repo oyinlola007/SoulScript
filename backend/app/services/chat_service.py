@@ -2,7 +2,7 @@ import os
 import uuid
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from langchain_openai import ChatOpenAI
 from langchain.prompts import (
     SystemMessagePromptTemplate,
@@ -12,15 +12,199 @@ from langchain.prompts import (
 )
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.chat_history import InMemoryChatMessageHistory
-from langchain.memory import ConversationSummaryBufferMemory
+from pydantic import BaseModel, Field
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
+from langchain.memory import ConversationSummaryBufferMemory
 from sqlmodel import Session, select
 from app.models import ChatSession, ChatMessage, User
 from app.core.config import settings
+from app.core.db import engine
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+class ConversationSummaryBufferMessageHistory(BaseChatMessageHistory, BaseModel):
+    """Custom message history that implements ConversationSummaryBufferMemory with database persistence"""
+
+    messages: list[BaseMessage] = Field(default_factory=list)
+    llm: ChatOpenAI = Field(default_factory=ChatOpenAI)
+    k: int = Field(default=6)  # Keep last 6 messages (3 pairs)
+    session_id: str = Field(default="")
+
+    def __init__(
+        self, session_id: str, db_session: Session, llm: ChatOpenAI, k: int = 6
+    ):
+        super().__init__()
+        self.session_id = session_id
+        self._db_session = db_session  # Use private variable to avoid serialization
+        self.llm = llm
+        self.k = k
+        self.messages = []
+
+        # Load existing summary and messages from database
+        self._load_from_database()
+
+    def _get_db_session(self) -> Session:
+        """Get database session, creating a new one if needed"""
+        if not hasattr(self, "_db_session") or self._db_session is None:
+            self._db_session = Session(engine)
+        return self._db_session
+
+    def _load_from_database(self):
+        """Load existing summary and messages from database"""
+        try:
+            session = self._get_db_session().get(ChatSession, self.session_id)
+            if not session:
+                return
+
+            # Load existing summary if available
+            if session.conversation_summary:
+                self.messages.append(
+                    SystemMessage(content=session.conversation_summary)
+                )
+                logger.info(f"Loaded existing summary for session {self.session_id}")
+
+            # Load recent messages
+            recent_messages = (
+                self._get_db_session()
+                .exec(
+                    select(ChatMessage)
+                    .where(ChatMessage.session_id == self.session_id)
+                    .order_by(ChatMessage.created_at.desc())
+                    .limit(self.k)
+                )
+                .all()
+            )
+
+            # Add messages in chronological order
+            for msg in reversed(recent_messages):
+                if msg.role == "user":
+                    from langchain_core.messages import HumanMessage
+
+                    self.messages.append(HumanMessage(content=msg.content))
+                else:
+                    from langchain_core.messages import AIMessage
+
+                    self.messages.append(AIMessage(content=msg.content))
+
+            logger.info(
+                f"Loaded {len(recent_messages)} recent messages for session {self.session_id}"
+            )
+        except Exception as e:
+            logger.error(f"Error loading from database: {e}")
+
+    def add_messages(self, messages: list[BaseMessage]) -> None:
+        """Add messages to the history, implementing ConversationSummaryBufferMemory logic"""
+        try:
+            existing_summary: SystemMessage | None = None
+            old_messages: list[BaseMessage] | None = None
+
+            # Check if we already have a summary message
+            if len(self.messages) > 0 and isinstance(self.messages[0], SystemMessage):
+                logger.info("Found existing summary")
+                existing_summary = self.messages.pop(0)
+
+            # Add the new messages to the history
+            self.messages.extend(messages)
+
+            # Check if we have too many messages
+            if len(self.messages) > self.k:
+                logger.info(
+                    f"Found {len(self.messages)} messages, dropping oldest {len(self.messages) - self.k} messages"
+                )
+                # Pull out the oldest messages...
+                old_messages = self.messages[: len(self.messages) - self.k]
+                # ...and keep only the most recent messages
+                self.messages = self.messages[-self.k :]
+
+            if old_messages is None:
+                logger.info("No old messages to update summary with")
+                return
+
+            # Construct the summary chat messages
+            summary_prompt = ChatPromptTemplate.from_messages(
+                [
+                    SystemMessagePromptTemplate.from_template(
+                        "Given the existing conversation summary and the new messages, "
+                        "generate a new summary of the conversation. Ensuring to maintain "
+                        "as much relevant information as possible. Keep the summary under 200 words."
+                    ),
+                    HumanMessagePromptTemplate.from_template(
+                        "Existing conversation summary:\n{existing_summary}\n\n"
+                        "New messages:\n{old_messages}"
+                    ),
+                ]
+            )
+
+            # Format the messages and invoke the LLM
+            new_summary = self.llm.invoke(
+                summary_prompt.format_messages(
+                    existing_summary=(
+                        existing_summary.content
+                        if existing_summary
+                        else "No previous summary"
+                    ),
+                    old_messages=old_messages,
+                )
+            )
+            logger.info(f"Generated new summary: {new_summary.content[:100]}...")
+
+            # Save summary to database
+            self._save_summary_to_database(new_summary.content)
+
+            # Prepend the new summary to the history
+            self.messages = [SystemMessage(content=new_summary.content)] + self.messages
+
+        except Exception as e:
+            logger.error(f"Error in add_messages: {e}")
+
+    def _save_summary_to_database(self, summary: str):
+        """Save summary to database"""
+        try:
+            session = self._get_db_session().get(ChatSession, self.session_id)
+            if session:
+                session.conversation_summary = summary
+                session.summary_updated_at = datetime.utcnow()
+
+                # Get the latest message ID
+                latest_message = (
+                    self._get_db_session()
+                    .exec(
+                        select(ChatMessage)
+                        .where(ChatMessage.session_id == self.session_id)
+                        .order_by(ChatMessage.created_at.desc())
+                    )
+                    .first()
+                )
+
+                if latest_message:
+                    session.last_summary_message_id = str(latest_message.id)
+
+                self._get_db_session().commit()
+                logger.info(f"Saved summary to database for session {self.session_id}")
+        except Exception as e:
+            logger.error(f"Failed to save summary to database: {e}")
+
+    def add_message(self, message: BaseMessage) -> None:
+        """Add a single message to the history"""
+        self.add_messages([message])
+
+    def clear(self) -> None:
+        """Clear the history"""
+        self.messages = []
+        # Clear summary in database
+        try:
+            session = self._get_db_session().get(ChatSession, self.session_id)
+            if session:
+                session.conversation_summary = ""
+                session.last_summary_message_id = ""
+                self._get_db_session().commit()
+        except Exception as e:
+            logger.error(f"Failed to clear summary in database: {e}")
 
 
 class ChatService:
@@ -83,22 +267,33 @@ class ChatService:
             return None
 
     def _create_chat_pipeline(self):
-        """Create the chat pipeline with memory"""
+        """Create the chat pipeline without RunnableWithMessageHistory to avoid serialization issues"""
         if not self.llm:
             logger.warning("No LLM available. Chat pipeline cannot be created.")
             return None
 
-        # Create system prompt
+        # Create system prompt with document sourcing instructions
         system_prompt = """You are a helpful AI assistant for SoulScript. You have access to the user's uploaded PDF documents and can provide information based on their content. 
 
 When answering questions:
-1. Use the context from the user's PDF documents when relevant
-2. Be conversational and helpful
-3. If you don't know something, say so honestly
-4. Keep responses concise but informative
-5. Maintain context from the conversation history"""
+1. **ALWAYS search the user's PDF documents first** when the question is relevant
+2. **Quote specific passages** from the documents when you use them as sources
+3. **Cite the document title** when referencing information from it
+4. **Be conversational and helpful** while maintaining accuracy
+5. **If you don't know something**, say so honestly
+6. **Keep responses concise but informative**
+7. **Maintain context from the conversation history** (summary + recent messages)
 
-        # Create prompt template
+When you use information from documents, format your response like this:
+"According to [Document Title]: [quoted passage]"
+
+This helps users understand where your information comes from.
+
+You have access to the user's document collection through a vector database. When a question is relevant to the user's documents, search through them and provide accurate, sourced information.
+
+IMPORTANT: Always cite your sources when using information from documents."""
+
+        # Create prompt template that includes memory
         prompt_template = ChatPromptTemplate.from_messages(
             [
                 SystemMessagePromptTemplate.from_template(system_prompt),
@@ -107,31 +302,58 @@ When answering questions:
             ]
         )
 
-        # Create pipeline
+        # Create simple pipeline without message history
         pipeline = prompt_template | self.llm
 
-        # Create pipeline with message history
-        pipeline_with_history = RunnableWithMessageHistory(
-            pipeline,
-            get_session_history=self._get_chat_history,
-            input_messages_key="query",
-            history_messages_key="history",
+        return pipeline
+
+    def _get_session_history(
+        self, session_id: str
+    ) -> ConversationSummaryBufferMessageHistory:
+        """Get session history for the LangChain pipeline"""
+        # This method is no longer used but kept for compatibility
+        db_session = Session(engine)
+        return ConversationSummaryBufferMessageHistory(
+            session_id=session_id,
+            db_session=db_session,
+            llm=self.llm,
+            k=6,  # Keep last 6 messages (3 pairs)
         )
 
-        return pipeline_with_history
-
-    def _get_chat_history(self, session_id: str) -> InMemoryChatMessageHistory:
-        """Get chat history for a session"""
+    def _get_chat_history(
+        self, session_id: str, db_session: Session
+    ) -> ConversationSummaryBufferMessageHistory:
+        """Get or create chat history for a session with persistent summary storage"""
         if session_id not in self.chat_memory_map:
-            self.chat_memory_map[session_id] = InMemoryChatMessageHistory()
+            # Create new persistent memory
+            self.chat_memory_map[session_id] = ConversationSummaryBufferMessageHistory(
+                session_id, db_session, self.llm
+            )
+            logger.info(f"Created new persistent memory for session {session_id}")
+        else:
+            # Update the database session for existing memory
+            self.chat_memory_map[session_id]._db_session = db_session
+            current_messages = len(self.chat_memory_map[session_id].messages)
+            logger.info(
+                f"Retrieved existing persistent memory for session {session_id} with {current_messages} messages"
+            )
+
         return self.chat_memory_map[session_id]
 
     def _get_pdf_context(self, user_id: uuid.UUID, query: str, limit: int = 3) -> str:
         """Get relevant PDF context for the user's query"""
         if not self.vectordb:
+            logger.info(f"No vector database available for user {user_id}")
             return ""
 
         try:
+            logger.info(
+                f"Searching PDF context for user {user_id} with query: '{query[:100]}...'"
+            )
+            logger.info(
+                f"Vector DB search parameters: limit={limit}, user_id={user_id}"
+            )
+
             # Create retriever with user-specific filtering
             retriever = self.vectordb.as_retriever(
                 search_kwargs={"k": limit, "filter": {"owner_id": str(user_id)}}
@@ -140,8 +362,23 @@ When answering questions:
             # Get relevant documents
             docs = retriever.get_relevant_documents(query)
 
+            logger.info(f"Vector DB returned {len(docs)} documents for user {user_id}")
+
             if not docs:
+                logger.info(f"No relevant documents found for user {user_id}")
                 return ""
+
+            # Log document details
+            for i, doc in enumerate(docs):
+                title = doc.metadata.get("pdf_title", "Unknown")
+                content_preview = (
+                    doc.page_content[:100] + "..."
+                    if len(doc.page_content) > 100
+                    else doc.page_content
+                )
+                logger.info(
+                    f"Document {i+1}: '{title}' - Content preview: '{content_preview}'"
+                )
 
             # Format context
             context_parts = []
@@ -150,10 +387,13 @@ When answering questions:
                 content = doc.page_content[:500]  # Limit content length
                 context_parts.append(f"From '{title}': {content}")
 
-            return "\n\n".join(context_parts)
+            final_context = "\n\n".join(context_parts)
+            logger.info(f"Final PDF context length: {len(final_context)} characters")
+
+            return final_context
 
         except Exception as e:
-            logger.error(f"Error retrieving PDF context: {e}")
+            logger.error(f"Error retrieving PDF context for user {user_id}: {e}")
             return ""
 
     def create_session(
@@ -202,6 +442,13 @@ When answering questions:
     ) -> Dict[str, Any]:
         """Send a message and get AI response"""
         try:
+            logger.info(
+                f"=== START: Processing message for session {session_id}, user {user_id} ==="
+            )
+            logger.info(
+                f"User message: '{content[:100]}{'...' if len(content) > 100 else ''}'"
+            )
+
             # Get the session
             session_statement = select(ChatSession).where(
                 ChatSession.id == session_id, ChatSession.owner_id == user_id
@@ -209,7 +456,14 @@ When answering questions:
             session = db.exec(session_statement).first()
 
             if not session:
+                logger.error(
+                    f"Session {session_id} not found or access denied for user {user_id}"
+                )
                 raise ValueError("Session not found or access denied")
+
+            logger.info(
+                f"Found session: '{session.title}' (created: {session.created_at})"
+            )
 
             # Save user message
             user_message = ChatMessage(
@@ -218,28 +472,89 @@ When answering questions:
             db.add(user_message)
             db.commit()
             db.refresh(user_message)
+            logger.info(f"Saved user message with ID: {user_message.id}")
 
             # Get AI response
             if not self.chat_pipeline:
+                logger.error("Chat pipeline not available")
                 raise ValueError("Chat pipeline not available")
 
+            # Get current chat history
+            chat_history = self._get_chat_history(str(session_id), db)
+            logger.info(
+                f"Current chat history has {len(chat_history.messages)} messages"
+            )
+
+            # Log the last few messages for context
+            if chat_history.messages:
+                logger.info("Recent conversation context:")
+                for i, msg in enumerate(chat_history.messages[-4:]):  # Last 4 messages
+                    role = (
+                        "User"
+                        if hasattr(msg, "content")
+                        and hasattr(msg, "type")
+                        and msg.type == "human"
+                        else "AI"
+                    )
+                    content_preview = (
+                        msg.content[:50] + "..."
+                        if len(msg.content) > 50
+                        else msg.content
+                    )
+                    logger.info(f"  {role}: '{content_preview}'")
+
             # Get PDF context for the query
+            logger.info("=== STEP 1: Retrieving PDF context ===")
             pdf_context = self._get_pdf_context(user_id, content)
+
+            if pdf_context:
+                logger.info(
+                    f"PDF context retrieved successfully ({len(pdf_context)} characters)"
+                )
+            else:
+                logger.info(
+                    "No PDF context found - proceeding with general knowledge only"
+                )
 
             # Prepare query with context
             enhanced_query = content
             if pdf_context:
-                enhanced_query = f"Context from your documents:\n{pdf_context}\n\nUser question: {content}"
+                enhanced_query = f"Context from your documents:\n{pdf_context}\n\nUser question: {content}\n\nPlease search the provided context and cite specific passages when answering."
+                logger.info(f"Enhanced query prepared with PDF context")
+            else:
+                logger.info("Using original query without PDF context")
+
+            # Add the user message to history
+            from langchain_core.messages import HumanMessage
+
+            user_langchain_message = HumanMessage(content=content)
+            chat_history.add_message(user_langchain_message)
+
+            # Prepare messages for the pipeline
+            messages = chat_history.messages.copy()
 
             # Get AI response using the pipeline
+            logger.info("=== STEP 2: Generating AI response ===")
+
+            # Use the simple pipeline without message history
             response = self.chat_pipeline.invoke(
-                {"query": enhanced_query}, config={"session_id": str(session_id)}
+                {"query": enhanced_query, "history": messages}
             )
 
             # Extract response content
             ai_content = (
                 response.content if hasattr(response, "content") else str(response)
             )
+            logger.info(f"AI response generated ({len(ai_content)} characters)")
+            logger.info(
+                f"AI response preview: '{ai_content[:200]}{'...' if len(ai_content) > 200 else ''}'"
+            )
+
+            # Add the AI response to history
+            from langchain_core.messages import AIMessage
+
+            ai_langchain_message = AIMessage(content=ai_content)
+            chat_history.add_message(ai_langchain_message)
 
             # Save AI message
             ai_message = ChatMessage(
@@ -255,9 +570,12 @@ When answering questions:
                 # Generate a title based on the first message
                 title = content[:50] + "..." if len(content) > 50 else content
                 session.title = title
+                logger.info(f"Auto-generated session title: '{title}'")
 
             db.commit()
             db.refresh(ai_message)
+            logger.info(f"Saved AI message with ID: {ai_message.id}")
+            logger.info(f"=== END: Message processing completed successfully ===")
 
             return {
                 "user_message": user_message,
@@ -266,7 +584,10 @@ When answering questions:
             }
 
         except Exception as e:
-            logger.error(f"Error sending message: {e}")
+            logger.error(
+                f"=== ERROR: Failed to process message for session {session_id} ==="
+            )
+            logger.error(f"Error details: {e}")
             db.rollback()
             raise
 
