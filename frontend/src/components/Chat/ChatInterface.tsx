@@ -94,6 +94,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         setSessions(prev => [newSession, ...prev]);
         setCurrentSession(newSession);
         setMessages([]);
+        setIsLoading(false);
       } else {
         showErrorToast('Failed to create new session');
       }
@@ -109,6 +110,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       return;
     }
 
+    // Create temporary user message to show immediately
+    const tempUserMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      session_id: currentSession.id,
+      role: 'user',
+      content: content,
+      created_at: new Date().toISOString()
+    };
+
+    // Add user message immediately
+    setMessages(prev => [...prev, tempUserMessage]);
+    
     setIsLoading(true);
     try {
       const token = localStorage.getItem('access_token');
@@ -125,15 +138,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         },
         body: JSON.stringify({
           content,
-          session_id: currentSession.id,
+          role: "user",
         }),
       });
       
       if (response.ok) {
         const result = await response.json();
         
-        // Add the new messages to the list
-        setMessages(prev => [...prev, result.user_message, result.ai_message]);
+        // Replace the temporary user message with the real one and add AI message
+        setMessages(prev => {
+          const filtered = prev.filter(msg => msg.id !== tempUserMessage.id);
+          return [...filtered, result.user_message, result.ai_message];
+        });
         
         // Update session title if it was auto-generated
         if (result.session.title !== currentSession.title) {
@@ -143,9 +159,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           );
         }
       } else {
+        // Remove the temporary message if request failed
+        setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
         showErrorToast('Failed to send message');
       }
     } catch (error) {
+      // Remove the temporary message if request failed
+      setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
       showErrorToast('Failed to send message');
     } finally {
       setIsLoading(false);
@@ -155,6 +175,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   // Select a session
   const selectSession = (session: ChatSession) => {
     setCurrentSession(session);
+    setIsLoading(false);
     fetchMessages(session.id);
   };
 
@@ -254,16 +275,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         >
           {currentSession ? (
             <VStack h="full" spacing={0}>
-              {/* Session Header */}
-              <Box w="full" p={4} borderBottom="1px" borderColor="gray.200">
-                <Text fontSize="lg" fontWeight="semibold">
-                  {currentSession.title}
-                </Text>
-              </Box>
-
               {/* Messages Area */}
               <Box flex={1} w="full" overflowY="auto">
-                <ChatMessages messages={messages} />
+                <ChatMessages messages={messages} isLoading={isLoading} />
               </Box>
 
               {/* Input Area */}

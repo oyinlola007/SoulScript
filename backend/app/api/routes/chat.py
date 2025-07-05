@@ -2,7 +2,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from sqlmodel import func, select
+from sqlmodel import func, select, Session
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -18,6 +18,10 @@ from app.models import (
     Message,
 )
 from app.services.chat_service import chat_service
+from app.core.db import engine
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -180,7 +184,7 @@ def read_chat_messages(
         )
 
 
-@router.post("/sessions/{session_id}/messages", response_model=dict)
+@router.post("/sessions/{session_id}/messages")
 def send_chat_message(
     *,
     session: SessionDep,
@@ -206,10 +210,36 @@ def send_chat_message(
             session, session_id, current_user.id, message_in.content
         )
 
+        # Convert SQLModel objects to proper response format
+        user_message_public = ChatMessagePublic(
+            id=result["user_message"].id,
+            content=result["user_message"].content,
+            role=result["user_message"].role,
+            session_id=result["user_message"].session_id,
+            created_at=result["user_message"].created_at,
+        )
+
+        ai_message_public = ChatMessagePublic(
+            id=result["ai_message"].id,
+            content=result["ai_message"].content,
+            role=result["ai_message"].role,
+            session_id=result["ai_message"].session_id,
+            created_at=result["ai_message"].created_at,
+        )
+
+        session_public = ChatSessionPublic(
+            id=result["session"].id,
+            title=result["session"].title,
+            is_active=result["session"].is_active,
+            owner_id=result["session"].owner_id,
+            created_at=result["session"].created_at,
+            updated_at=result["session"].updated_at,
+        )
+
         return {
-            "user_message": result["user_message"],
-            "ai_message": result["ai_message"],
-            "session": result["session"],
+            "user_message": user_message_public,
+            "ai_message": ai_message_public,
+            "session": session_public,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -233,3 +263,48 @@ def get_session_summary(
         raise HTTPException(
             status_code=500, detail=f"Error getting session summary: {str(e)}"
         )
+
+
+@router.post("/test-ai")
+async def test_ai_behavior(request: dict, session: SessionDep):
+    """
+    Test endpoint to verify AI behavior and logging
+    """
+    try:
+        # Create a test user and session
+        test_user_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+        test_session_id = uuid.UUID("00000000-0000-0000-0000-000000000002")
+
+        # Create test session if it doesn't exist
+        existing_session = session.exec(
+            select(ChatSession).where(ChatSession.id == test_session_id)
+        ).first()
+
+        if not existing_session:
+            existing_session = ChatSession(
+                id=test_session_id, owner_id=test_user_id, title="AI Test Session"
+            )
+            session.add(existing_session)
+            session.commit()
+            session.refresh(existing_session)
+
+        # Test the chat service
+        content = request.get("message", "Hello, how are you?")
+
+        logger.info("=== AI BEHAVIOR TEST START ===")
+        result = chat_service.send_message(
+            session, test_session_id, test_user_id, content
+        )
+        logger.info("=== AI BEHAVIOR TEST END ===")
+
+        return {
+            "status": "success",
+            "message": "AI behavior test completed",
+            "user_message": result["user_message"],
+            "ai_message": result["ai_message"],
+            "session": result["session"],
+        }
+
+    except Exception as e:
+        logger.error(f"AI behavior test failed: {e}")
+        return {"status": "error", "message": str(e)}

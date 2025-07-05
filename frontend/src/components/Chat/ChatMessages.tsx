@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { Box, VStack, HStack, Text, Avatar } from '@chakra-ui/react';
+import { Box, VStack, HStack, Text, Avatar, Flex, Spinner } from '@chakra-ui/react';
 import { ChatMessage } from '../../types/chat';
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
+  isLoading?: boolean;
 }
 
-const ChatMessages: React.FC<ChatMessagesProps> = ({ messages }) => {
+const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -33,54 +34,60 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages }) => {
   }
 
   return (
-    <VStack spacing={4} p={4} align="stretch" h="full" overflowY="auto">
-      {messages.map((message) => (
+    <Box p={4} display="flex" flexDirection="column">
+      {messages.map((message, index) => (
         <Box
-          key={message.id}
+          key={index}
           alignSelf={message.role === 'user' ? 'flex-end' : 'flex-start'}
           maxW="70%"
+          mb={3}
         >
-          <HStack
-            spacing={3}
-            align="start"
-            direction={message.role === 'user' ? 'row-reverse' : 'row'}
+          <Box
+            bg={message.role === 'user' ? 'blue.500' : 'gray.100'}
+            color={message.role === 'user' ? 'white' : 'black'}
+            px={4}
+            py={3}
+            borderRadius="lg"
+            maxW="100%"
           >
-            <Avatar
-              size="sm"
-              name={message.role === 'user' ? 'You' : 'AI'}
-              src={message.role === 'user' ? undefined : undefined}
-              bg={message.role === 'user' ? 'blue.500' : 'green.500'}
-            />
-            <Box
-              bg={message.role === 'user' ? 'blue.500' : 'gray.100'}
-              color={message.role === 'user' ? 'white' : 'black'}
-              px={4}
-              py={3}
-              borderRadius="lg"
-              maxW="100%"
+            <Text
+              fontSize="sm"
+              whiteSpace="pre-wrap"
+              wordBreak="break-word"
             >
-              <Text
-                fontSize="sm"
-                whiteSpace="pre-wrap"
-                wordBreak="break-word"
-              >
-                {message.content}
-              </Text>
-              <Text
-                fontSize="xs"
-                color={message.role === 'user' ? 'blue.100' : 'gray.500'}
-                mt={2}
-                textAlign={message.role === 'user' ? 'right' : 'left'}
-              >
-                {formatTime(message.created_at)}
-              </Text>
-            </Box>
-          </HStack>
+              {message.content}
+            </Text>
+          </Box>
         </Box>
       ))}
-      <div ref={messagesEndRef} />
-    </VStack>
+      
+      {/* AI Loading Indicator */}
+      {isLoading && (
+        <Box
+          alignSelf="flex-start"
+          maxW="70%"
+          mb={3}
+        >
+          <Box
+            bg="gray.100"
+            color="black"
+            px={4}
+            py={3}
+            borderRadius="lg"
+            maxW="100%"
+          >
+            <HStack spacing={2}>
+              <Spinner size="sm" color="blue.500" />
+              <Text fontSize="sm" color="gray.600">
+                AI is thinking...
+              </Text>
+            </HStack>
+          </Box>
+        </Box>
+      )}
+    </Box>
   );
+
 };
 
 export default ChatMessages; 
