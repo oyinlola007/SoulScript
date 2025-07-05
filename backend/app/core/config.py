@@ -100,6 +100,11 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     OPENAI_API_KEY: str | None = None
 
+    # Chat Configuration
+    CHAT_CONTEXT_WINDOW_SIZE: int = 3  # Number of messages to keep in context
+    CHAT_MEMORY_K: int = 3  # LangChain memory parameter
+    CHAT_SUMMARY_THRESHOLD: int = 5  # When to start summarizing
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

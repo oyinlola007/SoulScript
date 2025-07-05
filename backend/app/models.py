@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime
+from typing import Dict, Any
 
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import JSON as SQLJSON
 
 
 # Shared properties
@@ -46,6 +48,9 @@ class User(UserBase, table=True):
     hashed_password: str
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
     pdf_documents: list["PDFDocument"] = Relationship(
+        back_populates="owner", cascade_delete=True
+    )
+    chat_sessions: list["ChatSession"] = Relationship(
         back_populates="owner", cascade_delete=True
     )
 
@@ -159,4 +164,72 @@ class PDFDocumentPublic(PDFDocumentBase):
 
 class PDFDocumentsPublic(SQLModel):
     data: list[PDFDocumentPublic]
+    count: int
+
+
+# Chat Models
+class ChatSessionBase(SQLModel):
+    title: str = Field(min_length=1, max_length=255)
+    is_active: bool = Field(default=True)
+
+
+class ChatSessionCreate(ChatSessionBase):
+    pass
+
+
+class ChatSessionUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class ChatSession(ChatSessionBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    owner_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    )
+    owner: User | None = Relationship(back_populates="chat_sessions")
+    messages: list["ChatMessage"] = Relationship(
+        back_populates="session", cascade_delete=True
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ChatSessionPublic(ChatSessionBase):
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatSessionsPublic(SQLModel):
+    data: list[ChatSessionPublic]
+    count: int
+
+
+class ChatMessageBase(SQLModel):
+    content: str = Field(min_length=1)
+    role: str = Field(max_length=20)  # "user" or "assistant"
+
+
+class ChatMessageCreate(ChatMessageBase):
+    session_id: uuid.UUID
+
+
+class ChatMessage(ChatMessageBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    session_id: uuid.UUID = Field(
+        foreign_key="chatsession.id", nullable=False, ondelete="CASCADE"
+    )
+    session: ChatSession | None = Relationship(back_populates="messages")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ChatMessagePublic(ChatMessageBase):
+    id: uuid.UUID
+    session_id: uuid.UUID
+    created_at: datetime
+
+
+class ChatMessagesPublic(SQLModel):
+    data: list[ChatMessagePublic]
     count: int
