@@ -22,6 +22,16 @@ from sqlmodel import Session, select
 from app.models import ChatSession, ChatMessage, User
 from app.core.config import settings
 from app.core.db import engine
+from app.services.content_filter_service import content_filter_service
+from app.services.feature_flag_service import feature_flag_service
+from app.core.prompts import (
+    CHAT_SYSTEM_PROMPT,
+    CONVERSATION_SUMMARY_SYSTEM_PROMPT,
+    CONVERSATION_SUMMARY_HUMAN_PROMPT,
+    BLOCKED_CONTENT_MESSAGE,
+    AI_RESPONSE_BLOCKED_MESSAGE,
+    BLOCKED_SESSION_DELETE_ERROR,
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -129,13 +139,10 @@ class ConversationSummaryBufferMessageHistory(BaseChatMessageHistory, BaseModel)
             summary_prompt = ChatPromptTemplate.from_messages(
                 [
                     SystemMessagePromptTemplate.from_template(
-                        "Given the existing conversation summary and the new messages, "
-                        "generate a new summary of the conversation. Ensuring to maintain "
-                        "as much relevant information as possible. Keep the summary under 200 words."
+                        CONVERSATION_SUMMARY_SYSTEM_PROMPT
                     ),
                     HumanMessagePromptTemplate.from_template(
-                        "Existing conversation summary:\n{existing_summary}\n\n"
-                        "New messages:\n{old_messages}"
+                        CONVERSATION_SUMMARY_HUMAN_PROMPT
                     ),
                 ]
             )
@@ -272,31 +279,10 @@ class ChatService:
             logger.warning("No LLM available. Chat pipeline cannot be created.")
             return None
 
-        # Create system prompt with document sourcing instructions
-        system_prompt = """You are a helpful AI assistant for SoulScript. You have access to the user's uploaded PDF documents and can provide information based on their content. 
-
-When answering questions:
-1. **ALWAYS search the user's PDF documents first** when the question is relevant
-2. **Quote specific passages** from the documents when you use them as sources
-3. **Cite the document title** when referencing information from it
-4. **Be conversational and helpful** while maintaining accuracy
-5. **If you don't know something**, say so honestly
-6. **Keep responses concise but informative**
-7. **Maintain context from the conversation history** (summary + recent messages)
-
-When you use information from documents, format your response like this:
-"According to [Document Title]: [quoted passage]"
-
-This helps users understand where your information comes from.
-
-You have access to the user's document collection through a vector database. When a question is relevant to the user's documents, search through them and provide accurate, sourced information.
-
-IMPORTANT: Always cite your sources when using information from documents."""
-
         # Create prompt template that includes memory
         prompt_template = ChatPromptTemplate.from_messages(
             [
-                SystemMessagePromptTemplate.from_template(system_prompt),
+                SystemMessagePromptTemplate.from_template(CHAT_SYSTEM_PROMPT),
                 MessagesPlaceholder(variable_name="history"),
                 HumanMessagePromptTemplate.from_template("{query}"),
             ]
@@ -341,7 +327,7 @@ IMPORTANT: Always cite your sources when using information from documents."""
         return self.chat_memory_map[session_id]
 
     def _get_pdf_context(self, user_id: uuid.UUID, query: str, limit: int = 3) -> str:
-        """Get relevant PDF context for the user's query"""
+        """Get relevant PDF context for the user's query - Global access to all PDFs"""
         if not self.vectordb:
             logger.info(f"No vector database available for user {user_id}")
             return ""
@@ -351,33 +337,36 @@ IMPORTANT: Always cite your sources when using information from documents."""
                 f"Searching PDF context for user {user_id} with query: '{query[:100]}...'"
             )
             logger.info(
-                f"Vector DB search parameters: limit={limit}, user_id={user_id}"
+                f"Vector DB search parameters: limit={limit} (GLOBAL ACCESS - no user filtering)"
             )
 
-            # Create retriever with user-specific filtering
-            retriever = self.vectordb.as_retriever(
-                search_kwargs={"k": limit, "filter": {"owner_id": str(user_id)}}
-            )
+            # Create retriever with global access (no owner_id filtering)
+            retriever = self.vectordb.as_retriever(search_kwargs={"k": limit})
 
-            # Get relevant documents
+            # Get relevant documents from all PDFs
             docs = retriever.get_relevant_documents(query)
 
-            logger.info(f"Vector DB returned {len(docs)} documents for user {user_id}")
+            logger.info(
+                f"Vector DB returned {len(docs)} documents (global access) for user {user_id}"
+            )
 
             if not docs:
-                logger.info(f"No relevant documents found for user {user_id}")
+                logger.info(
+                    f"No relevant documents found in global PDF database for user {user_id}"
+                )
                 return ""
 
             # Log document details
             for i, doc in enumerate(docs):
                 title = doc.metadata.get("pdf_title", "Unknown")
+                owner_id = doc.metadata.get("owner_id", "Unknown")
                 content_preview = (
                     doc.page_content[:100] + "..."
                     if len(doc.page_content) > 100
                     else doc.page_content
                 )
                 logger.info(
-                    f"Document {i+1}: '{title}' - Content preview: '{content_preview}'"
+                    f"Document {i+1}: '{title}' (Owner: {owner_id}) - Content preview: '{content_preview}'"
                 )
 
             # Format context
@@ -465,7 +454,46 @@ IMPORTANT: Always cite your sources when using information from documents."""
                 f"Found session: '{session.title}' (created: {session.created_at})"
             )
 
-            # Save user message
+            # Check if session is blocked
+            if session.is_blocked:
+                logger.warning(
+                    f"Chat session {session_id} is blocked due to: {session.blocked_reason}"
+                )
+                raise ValueError("Chat session is blocked due to inappropriate content")
+
+            # Content filtering for user input
+            logger.info("=== STEP 0: Content filtering for user input ===")
+            filter_result = content_filter_service.filter_content(
+                content=content,
+                user_id=user_id,
+                session_id=session_id,
+                content_type="user_input",
+            )
+
+            if not filter_result["is_allowed"]:
+                # Log the violation
+                content_filter_service.log_violation(
+                    db=db,
+                    user_id=user_id,
+                    session_id=session_id,
+                    content_type="user_input",
+                    original_content=content,
+                    blocked_reason=filter_result["blocked_reason"],
+                )
+
+                # Block the chat session
+                content_filter_service.block_chat_session(
+                    db=db,
+                    session_id=session_id,
+                    blocked_reason=filter_result["blocked_reason"],
+                )
+
+                logger.error(
+                    f"Content blocked for user {user_id}: {filter_result['blocked_reason']}"
+                )
+                raise ValueError(f"Content blocked: {filter_result['blocked_reason']}")
+
+            # Save user message (only if content is allowed)
             user_message = ChatMessage(
                 session_id=session_id, content=content, role="user"
             )
@@ -516,13 +544,24 @@ IMPORTANT: Always cite your sources when using information from documents."""
                     "No PDF context found - proceeding with general knowledge only"
                 )
 
-            # Prepare query with context
+            # Get active feature flags for AI prompt
+            logger.info("=== STEP 1.5: Getting active feature flags ===")
+            active_flags_prompt = feature_flag_service.get_active_flags_prompt_text(db)
+
+            # Prepare query with context and feature flags
             enhanced_query = content
             if pdf_context:
                 enhanced_query = f"Context from your documents:\n{pdf_context}\n\nUser question: {content}\n\nPlease search the provided context and cite specific passages when answering."
                 logger.info(f"Enhanced query prepared with PDF context")
             else:
                 logger.info("Using original query without PDF context")
+
+            # Add feature flags to the query if any are active
+            if active_flags_prompt:
+                enhanced_query = f"{active_flags_prompt}\n\n{enhanced_query}"
+                logger.info("Enhanced query with active feature flags")
+            else:
+                logger.info("No active feature flags found")
 
             # Add the user message to history
             from langchain_core.messages import HumanMessage
@@ -549,6 +588,39 @@ IMPORTANT: Always cite your sources when using information from documents."""
             logger.info(
                 f"AI response preview: '{ai_content[:200]}{'...' if len(ai_content) > 200 else ''}'"
             )
+
+            # Content filtering for AI response
+            logger.info("=== STEP 3: Content filtering for AI response ===")
+            ai_filter_result = content_filter_service.filter_content(
+                content=ai_content,
+                user_id=user_id,
+                session_id=session_id,
+                content_type="ai_response",
+            )
+
+            if not ai_filter_result["is_allowed"]:
+                # Log the violation
+                content_filter_service.log_violation(
+                    db=db,
+                    user_id=user_id,
+                    session_id=session_id,
+                    content_type="ai_response",
+                    original_content=ai_content,
+                    blocked_reason=ai_filter_result["blocked_reason"],
+                )
+
+                # Block the chat session
+                content_filter_service.block_chat_session(
+                    db=db,
+                    session_id=session_id,
+                    blocked_reason=ai_filter_result["blocked_reason"],
+                )
+
+                # Replace AI content with blocked message
+                ai_content = AI_RESPONSE_BLOCKED_MESSAGE
+                logger.warning(
+                    f"AI response blocked for user {user_id}: {ai_filter_result['blocked_reason']}"
+                )
 
             # Add the AI response to history
             from langchain_core.messages import AIMessage
@@ -621,6 +693,10 @@ IMPORTANT: Always cite your sources when using information from documents."""
 
         if not session:
             raise ValueError("Session not found or access denied")
+
+            # Check if session is blocked
+            if session.is_blocked:
+                raise ValueError(BLOCKED_SESSION_DELETE_ERROR)
 
         # Delete session (messages will be cascade deleted)
         db.delete(session)

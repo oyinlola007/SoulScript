@@ -8,7 +8,6 @@ import { UsersService } from "@/client"
 import {
   DialogActionTrigger,
   DialogBody,
-  DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -94,7 +93,6 @@ const DeleteUser = ({ id }: { id: string }) => {
               Delete
             </Button>
           </DialogFooter>
-          <DialogCloseTrigger />
         </form>
       </DialogContent>
     </DialogRoot>

@@ -5,20 +5,21 @@ import { FiSend } from 'react-icons/fi';
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  isBlocked?: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isBlocked = false }) => {
   const [message, setMessage] = useState('');
 
   const handleSend = () => {
-    if (message.trim() && !isLoading) {
+    if (message.trim() && !isLoading && !isBlocked) {
       onSendMessage(message.trim());
       setMessage('');
     }
   };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isBlocked) {
       e.preventDefault();
       handleSend();
     }
@@ -30,8 +31,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyPress={handleKeyPress}
-        placeholder="Type your message..."
-        disabled={isLoading}
+        placeholder={isBlocked ? "Chat session blocked" : "Type your message..."}
+        disabled={isLoading || isBlocked}
         size="lg"
         borderRadius="full"
         _focus={{
@@ -42,7 +43,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
       <IconButton
         aria-label="Send message"
         onClick={handleSend}
-        disabled={!message.trim() || isLoading}
+        disabled={!message.trim() || isLoading || isBlocked}
         colorScheme="blue"
         size="lg"
         borderRadius="full"

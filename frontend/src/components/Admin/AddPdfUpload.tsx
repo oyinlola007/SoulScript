@@ -16,7 +16,6 @@ import { useState } from "react"
 import { FaUpload } from "react-icons/fa"
 import {
   DialogBody,
-  DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -119,7 +118,7 @@ const AddPdfUpload = () => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button value="add-pdf" my={4} ml={4}>
+        <Button value="add-pdf" my={4}>
           <FaUpload fontSize="16px" />
           Upload PDF
         </Button>
@@ -213,7 +212,6 @@ const AddPdfUpload = () => {
             </Button>
           </DialogFooter>
         </form>
-        <DialogCloseTrigger />
       </DialogContent>
     </DialogRoot>
   )

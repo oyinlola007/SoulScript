@@ -6,6 +6,7 @@ import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
 import useAuth from '../../hooks/useAuth';
 import useCustomToast from '../../hooks/useCustomToast';
+import { BLOCKED_CONTENT_MESSAGE, BLOCKED_SESSION_DELETE_ERROR, CHAT_SELECT_MESSAGE, START_NEW_CHAT_BUTTON } from '../../constants/prompts';
 
 interface ChatInterfaceProps {}
 
@@ -14,6 +15,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockedReason, setBlockedReason] = useState('');
   const { user } = useAuth();
   const { showErrorToast, showSuccessToast } = useCustomToast();
 
@@ -95,6 +98,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         setCurrentSession(newSession);
         setMessages([]);
         setIsLoading(false);
+        setIsBlocked(false);
+        setBlockedReason('');
       } else {
         showErrorToast('Failed to create new session');
       }
@@ -161,7 +166,37 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       } else {
         // Remove the temporary message if request failed
         setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
-        showErrorToast('Failed to send message');
+        
+        // Check if it's a content blocking error
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 400 && errorData.detail && errorData.detail.includes('Content blocked:')) {
+          const blockedReason = errorData.detail.replace('Content blocked: ', '');
+          setIsBlocked(true);
+          setBlockedReason(blockedReason);
+          
+          // Update the current session and sessions list to reflect blocked status
+          const updatedSession = {
+            ...currentSession,
+            is_blocked: true,
+            blocked_reason: blockedReason
+          };
+          setCurrentSession(updatedSession);
+          setSessions(prev => 
+            prev.map(s => s.id === currentSession.id ? updatedSession : s)
+          );
+          
+          // Add a system message about the blocking
+          const systemMessage: ChatMessage = {
+            id: `blocked-${Date.now()}`,
+            session_id: currentSession.id,
+            role: 'assistant',
+            content: BLOCKED_CONTENT_MESSAGE,
+            created_at: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, systemMessage]);
+        } else {
+          showErrorToast('Failed to send message');
+        }
       }
     } catch (error) {
       // Remove the temporary message if request failed
@@ -176,6 +211,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const selectSession = (session: ChatSession) => {
     setCurrentSession(session);
     setIsLoading(false);
+    
+    // Check if session is blocked
+    if (session.is_blocked) {
+      setIsBlocked(true);
+      setBlockedReason(session.blocked_reason || 'Content violation');
+    } else {
+      setIsBlocked(false);
+      setBlockedReason('');
+    }
+    
     fetchMessages(session.id);
   };
 
@@ -203,7 +248,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         }
         showSuccessToast('Session deleted successfully');
       } else {
-        showErrorToast('Failed to delete session');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 400 && errorData.detail && errorData.detail.includes('Cannot delete a blocked session')) {
+          showErrorToast(BLOCKED_SESSION_DELETE_ERROR);
+        } else {
+          showErrorToast('Failed to delete session');
+        }
       }
     } catch (error) {
       showErrorToast('Failed to delete session');
@@ -275,6 +325,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         >
           {currentSession ? (
             <VStack h="full" spacing={0}>
+              {/* Blocked Status Banner */}
+              {isBlocked && (
+                <Box w="full" bg="red.50" borderBottom="1px" borderColor="red.200" p={3}>
+                  <Text fontSize="sm" color="red.700" textAlign="center" fontWeight="medium">
+                    ⚠️ This chat session has been blocked for your safety
+                  </Text>
+                </Box>
+              )}
+              
               {/* Messages Area */}
               <Box flex={1} w="full" overflowY="auto">
                 <ChatMessages messages={messages} isLoading={isLoading} />
@@ -282,17 +341,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
               {/* Input Area */}
               <Box w="full" p={4} borderTop="1px" borderColor="gray.200">
-                <ChatInput onSendMessage={sendMessage} isLoading={isLoading} />
+                <ChatInput onSendMessage={sendMessage} isLoading={isLoading} isBlocked={isBlocked} />
               </Box>
             </VStack>
           ) : (
             <Flex h="full" align="center" justify="center">
               <VStack spacing={4}>
                 <Text fontSize="xl" color="gray.500">
-                  Select a chat session or create a new one
+                  {CHAT_SELECT_MESSAGE}
                 </Text>
                 <Button colorScheme="blue" onClick={createNewSession}>
-                  Start New Chat
+                  {START_NEW_CHAT_BUTTON}
                 </Button>
               </VStack>
             </Flex>

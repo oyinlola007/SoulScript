@@ -12,6 +12,15 @@ import {
 import { FiPlus, FiEdit, FiTrash2 } from 'react-icons/fi';
 import { BsThreeDotsVertical } from 'react-icons/bs';
 import { MenuContent, MenuRoot, MenuTrigger, MenuItem, MenuSeparator } from '../ui/menu';
+import {
+  DialogRoot,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+  DialogActionTrigger,
+} from '../ui/dialog';
 import { ChatSession } from '../../types/chat';
 
 interface ChatSessionListProps {
@@ -33,6 +42,8 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
 }) => {
   const [editingSession, setEditingSession] = useState<ChatSession | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<ChatSession | null>(null);
 
   const handleEditClick = (session: ChatSession) => {
     setEditingSession(session);
@@ -53,8 +64,15 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
   };
 
   const handleDeleteClick = (session: ChatSession) => {
-    if (window.confirm(`Are you sure you want to delete "${session.title}"?`)) {
-      onDeleteSession(session.id);
+    setSessionToDelete(session);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (sessionToDelete) {
+      onDeleteSession(sessionToDelete.id);
+      setDeleteDialogOpen(false);
+      setSessionToDelete(null);
     }
   };
 
@@ -169,21 +187,36 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                         Edit Title
                       </MenuItem>
                       <MenuSeparator />
-                      <MenuItem
-                        closeOnSelect
-                        value="delete-session"
-                        gap={2}
-                        py={2}
-                        color="red.500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteClick(session);
-                        }}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <FiTrash2 fontSize="18px" />
-                        Delete Session
-                      </MenuItem>
+                      {session.is_blocked ? (
+                        <MenuItem
+                          closeOnSelect
+                          value="delete-blocked"
+                          gap={2}
+                          py={2}
+                          color="gray.400"
+                          style={{ cursor: "not-allowed" }}
+                          disabled
+                        >
+                          <FiTrash2 fontSize="18px" />
+                          Delete Session (Blocked)
+                        </MenuItem>
+                      ) : (
+                        <MenuItem
+                          closeOnSelect
+                          value="delete-session"
+                          gap={2}
+                          py={2}
+                          color="red.500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(session);
+                          }}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <FiTrash2 fontSize="18px" />
+                          Delete Session
+                        </MenuItem>
+                      )}
                     </MenuContent>
                   </MenuRoot>
                 </HStack>
@@ -192,6 +225,56 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
           ))
         )}
       </VStack>
+
+      {/* Delete Confirmation Dialog */}
+      <DialogRoot
+        size={{ base: "xs", md: "md" }}
+        placement="center"
+        role="alertdialog"
+        open={deleteDialogOpen}
+        onOpenChange={({ open }) => setDeleteDialogOpen(open)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle color="red.600">Delete Chat Session</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <VStack gap={4} align="stretch">
+              <Text color="red.600" fontWeight="medium">
+                Warning: This action cannot be undone!
+              </Text>
+              <Text>
+                Are you sure you want to delete <strong>"{sessionToDelete?.title}"</strong>?
+              </Text>
+              
+              <Text fontSize="sm" color="gray.600" fontWeight="medium">
+                This action will:
+              </Text>
+              <VStack align="start" gap={1} ml={4}>
+                <Text fontSize="sm" color="gray.600">• Remove the chat session from your history</Text>
+                <Text fontSize="sm" color="gray.600">• Delete all messages in this session</Text>
+                <Text fontSize="sm" color="red.600" fontWeight="bold">• This action cannot be undone</Text>
+              </VStack>
+            </VStack>
+          </DialogBody>
+          <DialogFooter gap={2}>
+            <DialogActionTrigger asChild>
+              <Button variant="outline">
+                Cancel
+              </Button>
+            </DialogActionTrigger>
+            <Button
+              bg="red.600"
+              color="white"
+              _hover={{ bg: "red.700" }}
+              _active={{ bg: "red.800" }}
+              onClick={handleDeleteConfirm}
+            >
+              Delete Session
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </DialogRoot>
     </Box>
   );
 };

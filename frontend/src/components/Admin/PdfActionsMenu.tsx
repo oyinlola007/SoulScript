@@ -12,7 +12,6 @@ import { MenuContent, MenuRoot, MenuTrigger } from "../ui/menu"
 import {
   DialogActionTrigger,
   DialogBody,
-  DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
