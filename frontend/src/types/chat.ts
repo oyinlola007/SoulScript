@@ -5,6 +5,8 @@ export interface ChatSession {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  is_blocked?: boolean;
+  blocked_reason?: string;
 }
 
 export interface ChatMessage {

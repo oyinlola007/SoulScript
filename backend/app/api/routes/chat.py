@@ -234,6 +234,8 @@ def send_chat_message(
             owner_id=result["session"].owner_id,
             created_at=result["session"].created_at,
             updated_at=result["session"].updated_at,
+            is_blocked=result["session"].is_blocked,
+            blocked_reason=result["session"].blocked_reason,
         )
 
         return {

@@ -21,7 +21,6 @@ import { emailPattern, handleError } from "@/utils"
 import { Checkbox } from "../ui/checkbox"
 import {
   DialogBody,
-  DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -210,7 +209,6 @@ const EditUser = ({ user }: EditUserProps) => {
               Save
             </Button>
           </DialogFooter>
-          <DialogCloseTrigger />
         </form>
       </DialogContent>
     </DialogRoot>

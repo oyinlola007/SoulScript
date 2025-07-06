@@ -7,6 +7,8 @@ import { type UserPublic, UsersService } from "@/client"
 import AddUser from "@/components/Admin/AddUser"
 import AddPdfUpload from "@/components/Admin/AddPdfUpload"
 import PdfList from "@/components/Admin/PdfList"
+import { FeatureFlags } from "@/components/Admin/FeatureFlags"
+import { ContentFilterLogs } from "@/components/Admin/ContentFilterLogs"
 import { UserActionsMenu } from "@/components/Common/UserActionsMenu"
 import PendingUsers from "@/components/Pending/PendingUsers"
 import {
@@ -126,16 +128,26 @@ function Admin() {
         <Tabs.List>
           <Tabs.Trigger value="users">Users Management</Tabs.Trigger>
           <Tabs.Trigger value="pdfs">PDF Documents</Tabs.Trigger>
+          <Tabs.Trigger value="feature-flags">Feature Flags</Tabs.Trigger>
+          <Tabs.Trigger value="content-filter">Content Filter</Tabs.Trigger>
         </Tabs.List>
         
-        <Tabs.Content value="users">
-      <AddUser />
-      <UsersTable />
+        <Tabs.Content value="users" p={4}>
+          <AddUser />
+          <UsersTable />
         </Tabs.Content>
         
-        <Tabs.Content value="pdfs">
+        <Tabs.Content value="pdfs" p={4}>
           <AddPdfUpload />
           <PdfList />
+        </Tabs.Content>
+
+        <Tabs.Content value="feature-flags" p={4}>
+          <FeatureFlags />
+        </Tabs.Content>
+
+        <Tabs.Content value="content-filter" p={4}>
+          <ContentFilterLogs />
         </Tabs.Content>
       </Tabs.Root>
     </Container>

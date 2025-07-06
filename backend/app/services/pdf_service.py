@@ -231,28 +231,30 @@ class PDFService:
             return {"status": "error", "error": str(e)}
 
     def search_similar_chunks(
-        self, query: str, owner_id: uuid.UUID, limit: int = 5
+        self, query: str, owner_id: uuid.UUID = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
-        """Search for similar chunks in the user's documents using LangChain retriever"""
+        """Search for similar chunks in all documents using LangChain retriever (Global access)"""
         try:
             # Create retriever
             retriever = self.vectordb.as_retriever(search_kwargs={"k": limit})
 
-            # Get relevant documents
+            # Get relevant documents from all PDFs
             docs = retriever.get_relevant_documents(query)
 
-            # Filter by owner_id and format results
+            # Format results (no owner_id filtering for global access)
             formatted_results = []
             for doc in docs:
-                if doc.metadata.get("owner_id") == str(owner_id):
-                    formatted_results.append(
-                        {
-                            "content": doc.page_content,
-                            "metadata": doc.metadata,
-                            "score": None,  # LangChain doesn't provide scores by default
-                        }
-                    )
+                formatted_results.append(
+                    {
+                        "content": doc.page_content,
+                        "metadata": doc.metadata,
+                        "score": None,  # LangChain doesn't provide scores by default
+                    }
+                )
 
+            logger.info(
+                f"Found {len(formatted_results)} similar chunks (global access)"
+            )
             return formatted_results
 
         except Exception as e:
@@ -314,7 +316,7 @@ class PDFService:
             return False
 
     def get_retriever(self, owner_id: uuid.UUID = None, search_kwargs: Dict = None):
-        """Get a retriever for the vector store with optional filtering"""
+        """Get a retriever for the vector store with global access (no filtering)"""
         if not self.vectordb:
             logger.warning("ChromaDB not available. Cannot create retriever.")
             return None
@@ -324,11 +326,9 @@ class PDFService:
 
         retriever = self.vectordb.as_retriever(search_kwargs=search_kwargs)
 
-        # If owner_id is provided, we need to filter results
-        if owner_id:
-            # This is a simplified approach - in practice, you might want to implement
-            # a custom retriever that filters by owner_id
-            pass
+        # Note: Global access - no owner_id filtering applied
+        # All users can access all PDFs in the vector database
+        logger.info("Created retriever with global PDF access (no owner filtering)")
 
         return retriever
 

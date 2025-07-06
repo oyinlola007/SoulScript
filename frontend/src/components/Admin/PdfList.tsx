@@ -15,7 +15,6 @@ import { FaTrash, FaEye } from "react-icons/fa"
 import {
   DialogActionTrigger,
   DialogBody,
-  DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -212,10 +211,7 @@ const PdfList = () => {
   }
 
   return (
-    <Box p={4}>
-      <Heading size="md" mb={4}>
-        PDF Documents ({pdfsResponse && 'count' in pdfsResponse ? pdfsResponse.count : 0})
-      </Heading>
+    <Box>
       
       <VStack gap={4} align="stretch">
         {pdfsResponse && 'data' in pdfsResponse && Array.isArray(pdfsResponse.data) && pdfsResponse.data.map((pdf: PDFDocument) => (
@@ -320,16 +316,15 @@ const PdfList = () => {
               </VStack>
             )}
           </DialogBody>
-          <DialogFooter gap={3}>
-            <DialogCloseTrigger asChild>
+          <DialogFooter gap={2}>
+            <DialogActionTrigger asChild>
               <Button 
                 variant="outline" 
                 disabled={isDeleting}
-                flex={1}
               >
                 Cancel
               </Button>
-            </DialogCloseTrigger>
+            </DialogActionTrigger>
             <DialogActionTrigger asChild>
               <Button
                 bg="red.600"
@@ -338,7 +333,6 @@ const PdfList = () => {
                 _active={{ bg: "red.800" }}
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting || confirmTitle !== deletingPdf?.title}
-                flex={1}
               >
                 {isDeleting ? "Deleting..." : "Delete PDF"}
               </Button>
