@@ -47,10 +47,22 @@ def create_pdf_document(
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
 
+    # Check file size limit (10MB)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
+
     # Read file content
     try:
         file_content = file.file.read()
         file_size = len(file_content)
+
+        # Check if file size exceeds limit
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File size ({file_size / (1024*1024):.2f} MB) exceeds the maximum allowed size of 10 MB.",
+            )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
 

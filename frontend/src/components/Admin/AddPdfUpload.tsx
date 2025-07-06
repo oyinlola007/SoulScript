@@ -32,7 +32,7 @@ interface PdfUploadForm {
 
 const AddPdfUpload = () => {
   const [isOpen, setIsOpen] = useState(false)
-  const { showSuccessToast } = useCustomToast()
+  const { showSuccessToast, showErrorToast } = useCustomToast()
   const {
     register,
     handleSubmit,
@@ -107,6 +107,21 @@ const AddPdfUpload = () => {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null
+    
+    if (file) {
+      // Check file size limit (10MB)
+      const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB in bytes
+      
+      if (file.size > MAX_FILE_SIZE) {
+        setValue("file", null)
+        // Clear the file input
+        event.target.value = ""
+        // Show error toast
+        showErrorToast(`File size (${(file.size / (1024*1024)).toFixed(2)} MB) exceeds the maximum allowed size of 10 MB.`)
+        return
+      }
+    }
+    
     setValue("file", file)
   }
 
@@ -183,6 +198,9 @@ const AddPdfUpload = () => {
                   accept=".pdf"
                   onChange={handleFileChange}
                 />
+                <Text fontSize="sm" color="gray.500" mt={1}>
+                  Maximum file size: 10 MB
+                </Text>
                 {selectedFile && (
                   <Text fontSize="sm" color="gray.600" mt={1}>
                     Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
