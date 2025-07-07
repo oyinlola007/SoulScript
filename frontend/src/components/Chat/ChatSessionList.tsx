@@ -22,6 +22,7 @@ import {
   DialogActionTrigger,
 } from '../ui/dialog';
 import { ChatSession } from '../../types/chat';
+import { useColorModeValue } from '../ui/color-mode';
 
 interface ChatSessionListProps {
   sessions: ChatSession[];
@@ -113,9 +114,13 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
               p={currentSession?.id === session.id ? 3 : 2}
               border="none"
               borderRadius="md"
-              bg={currentSession?.id === session.id ? 'blue.50' : 'transparent'}
+              bg={currentSession?.id === session.id ? useColorModeValue('blue.50', 'blue.700') : 'transparent'}
               cursor="pointer"
-              _hover={{ bg: currentSession?.id === session.id ? 'blue.50' : 'gray.50' }}
+              _hover={{
+                bg: currentSession?.id === session.id
+                  ? useColorModeValue('blue.50', 'blue.700')
+                  : useColorModeValue('gray.50', 'blue.900')
+              }}
               onClick={() => onSelectSession(session)}
             >
               {editingSession?.id === session.id ? (
@@ -153,10 +158,11 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                       fontWeight="medium"
                       noOfLines={2}
                       wordBreak="break-word"
+                      color={currentSession?.id === session.id ? useColorModeValue('blue.800', 'white') : useColorModeValue('gray.800', 'gray.100')}
                     >
                       {session.title}
                     </Text>
-                    <Text fontSize="xs" color="gray.500">
+                    <Text fontSize="xs" color={useColorModeValue('gray.500', 'gray.400')}>
                       {formatDate(session.updated_at)}
                     </Text>
                   </VStack>
