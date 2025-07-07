@@ -217,7 +217,7 @@ npm run dev
 
 1. **Start with Docker Compose:** Use `docker compose watch` for the full stack
 2. **Switch to local development:** Stop specific services and run them locally for faster iteration
-   ```bash
+```bash
    # Stop frontend container and run locally
    docker compose stop frontend
    cd frontend && npm run dev
@@ -228,7 +228,7 @@ npm run dev
    ```
 
 3. **Database Migrations:** When you change models, create and run migrations
-   ```bash
+```bash
    # Enter backend container
    docker compose exec backend bash
    
@@ -240,10 +240,10 @@ npm run dev
    ```
 
 4. **Generate Frontend Client:** After backend API changes
-   ```bash
+```bash
    # From project root
    ./scripts/generate-client.sh
-   ```
+```
 
 ### Testing Local Domains
 

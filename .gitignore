@@ -11,3 +11,4 @@ node_modules/
 /playwright/.cache/
 *.ipynb
 .DS_Store
+*.pem
