@@ -53,7 +53,7 @@ FEATURE_FLAG_ACTIVE_HEADER = "Active Feature Flags:"
 FEATURE_FLAG_INSTRUCTIONS = """Instructions:
 1. If the user's request relates to any of the above active features, provide detailed, helpful responses using the feature's capabilities.
 2. For general questions (like greetings, casual conversations...), respond normally and helpfully.
-3. For specific requests that don't relate to any active features above, respond with: 'I apologize, but this feature is not currently available. Please contact an administrator if you need access to this functionality.'
+3. For specific requests that don't relate to any active features above, respond with: 'I apologize, but this feature is not currently available. These are the requests I can help you with:' and then list the active feature titles as a markdown list.
 4. Always maintain a spiritual, supportive tone in your responses."""
 
 # =============================================================================
@@ -97,5 +97,10 @@ def format_feature_flags_prompt(active_flags: list) -> str:
 
     prompt_parts.append("")
     prompt_parts.append(FEATURE_FLAG_INSTRUCTIONS)
+    prompt_parts.append("")
+    prompt_parts.append(
+        "If a user's request is not available, respond with the unavailable message and then append this list of available features:"
+    )
+    prompt_parts.append("\n".join([f"- {flag.name}" for flag in active_flags]))
 
     return "\n".join(prompt_parts)

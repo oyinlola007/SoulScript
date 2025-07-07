@@ -1,5 +1,6 @@
 import React, { useState, KeyboardEvent } from 'react';
 import { HStack, Input, IconButton, Spinner } from '@chakra-ui/react';
+import { useColorModeValue } from '../ui/color-mode';
 import { FiSend } from 'react-icons/fi';
 
 interface ChatInputProps {
@@ -35,9 +36,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isBlock
         disabled={isLoading || isBlocked}
         size="lg"
         borderRadius="full"
+        borderColor={useColorModeValue('gray.300', 'gray.600')}
         _focus={{
-          borderColor: 'blue.500',
-          boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)',
+          borderColor: useColorModeValue('blue.500', 'blue.300'),
+          boxShadow: `0 0 0 1px ${useColorModeValue('var(--chakra-colors-blue-500)', 'var(--chakra-colors-blue-300)')}`,
         }}
       />
       <IconButton

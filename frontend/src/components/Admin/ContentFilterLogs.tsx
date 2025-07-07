@@ -15,6 +15,7 @@ import {
   PaginationItems,
   PaginationNextTrigger,
 } from "@/components/ui/pagination.tsx"
+import { useColorModeValue } from '../ui/color-mode';
 
 
 interface ContentFilterLog {
@@ -130,38 +131,38 @@ export const ContentFilterLogs: React.FC = () => {
       <VStack gap={4} align="stretch">
 
         {/* Statistics */}
-        <Box p={4} border="1px" borderColor="gray.200" borderRadius="md" bg="white">
+        <Box p={4} border="1px" borderColor={useColorModeValue('gray.200', 'gray.700')} borderRadius="md" bg={useColorModeValue('white', 'gray.800')}>
           <VStack gap={3}>
             <HStack gap={6}>
               <Box textAlign="center">
                 <Text fontSize="2xl" fontWeight="bold" color="red.500">
                   {stats.total_violations}
                 </Text>
-                <Text fontSize="sm" color="gray.600">Total Violations</Text>
+                <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>Total Violations</Text>
               </Box>
               <Box textAlign="center">
                 <Text fontSize="2xl" fontWeight="bold" color="orange.500">
                   {stats.today_violations}
                 </Text>
-                <Text fontSize="sm" color="gray.600">Today's Violations</Text>
+                <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>Today's Violations</Text>
               </Box>
               <Box textAlign="center">
                 <Text fontSize="2xl" fontWeight="bold" color="blue.500">
                   {stats.user_input_violations}
                 </Text>
-                <Text fontSize="sm" color="gray.600">User Input Violations</Text>
+                <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>User Input Violations</Text>
               </Box>
               <Box textAlign="center">
                 <Text fontSize="2xl" fontWeight="bold" color="purple.500">
                   {stats.ai_response_violations}
                 </Text>
-                <Text fontSize="sm" color="gray.600">AI Response Violations</Text>
+                <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>AI Response Violations</Text>
               </Box>
             </HStack>
           </VStack>
         </Box>
 
-        <Box borderTop="1px" borderColor="gray.200" pt={4} />
+        <Box borderTop="1px" borderColor={useColorModeValue('gray.200', 'gray.700')} pt={4} />
 
         {/* Filters */}
         <HStack gap={4} align="end">
@@ -206,10 +207,10 @@ export const ContentFilterLogs: React.FC = () => {
         </HStack>
 
         {/* Logs Table */}
-        <Box border="1px" borderColor="gray.200" borderRadius="md" bg="white" overflow="auto">
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <Box border="1px" borderColor={useColorModeValue('gray.200', 'gray.700')} borderRadius="md" bg={useColorModeValue('white', 'gray.800')} overflow="auto">
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'transparent' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <tr style={{ borderBottom: `1px solid ${useColorModeValue('#e2e8f0', '#2d3748')}` }}>
                 <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>User ID</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Type</th>
                 <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px' }}>Reason</th>
@@ -220,8 +221,8 @@ export const ContentFilterLogs: React.FC = () => {
             </thead>
             <tbody>
               {logs.map((log) => (
-                <tr key={log.id} style={{ borderBottom: '1px solid #f7fafc' }}>
-                  <td style={{ padding: '12px', fontSize: '12px', fontFamily: 'monospace' }}>
+                <tr key={log.id} style={{ borderBottom: useColorModeValue('1px solid #f7fafc', '1px solid #2d3748'), background: 'transparent' }}>
+                  <td style={{ padding: '12px', fontSize: '12px', fontFamily: 'monospace', color: useColorModeValue('#1a202c', '#e2e8f0') }}>
                     {log.user_id.substring(0, 8)}...
                   </td>
                   <td style={{ padding: '12px' }}>
@@ -237,15 +238,15 @@ export const ContentFilterLogs: React.FC = () => {
                       {log.blocked_reason}
                     </Text>
                   </td>
-                  <td style={{ padding: '12px', maxWidth: '200px' }}>
+                  <td style={{ padding: '12px', maxWidth: '200px', color: useColorModeValue('#1a202c', '#e2e8f0') }}>
                     <Text fontSize="xs">
                       {getContentPreview(log.original_content)}
                     </Text>
                   </td>
-                  <td style={{ padding: '12px', fontSize: '12px', fontFamily: 'monospace' }}>
+                  <td style={{ padding: '12px', fontSize: '12px', fontFamily: 'monospace', color: useColorModeValue('#1a202c', '#e2e8f0') }}>
                     {log.session_id ? log.session_id.substring(0, 8) + '...' : 'N/A'}
                   </td>
-                  <td style={{ padding: '12px', fontSize: '12px' }}>
+                  <td style={{ padding: '12px', fontSize: '12px', color: useColorModeValue('#1a202c', '#e2e8f0') }}>
                     {new Date(log.created_at).toLocaleString()}
                   </td>
                 </tr>

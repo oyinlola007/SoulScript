@@ -3,6 +3,7 @@ import { Box, VStack, HStack, Text, Avatar, Flex, Spinner } from '@chakra-ui/rea
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatMessage } from '../../types/chat';
+import { useColorModeValue } from '../ui/color-mode';
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
@@ -47,8 +48,8 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
           mb={3}
         >
           <Box
-            bg={message.role === 'user' ? 'blue.500' : 'gray.100'}
-            color={message.role === 'user' ? 'white' : 'black'}
+            bg={message.role === 'user' ? useColorModeValue('blue.500', 'blue.300') : useColorModeValue('gray.100', 'gray.700')}
+            color={message.role === 'user' ? useColorModeValue('white', 'gray.900') : useColorModeValue('black', 'white')}
             px={4}
             py={3}
             borderRadius="lg"
@@ -78,7 +79,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
                   '& ul, & ol': { mb: 2, pl: 4 },
                   '& li': { mb: 1 },
                   '& code': {
-                    bg: 'gray.200',
+                    bg: useColorModeValue('gray.200', 'gray.800'),
                     px: 1,
                     py: 0.5,
                     borderRadius: 'sm',
@@ -86,7 +87,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
                     fontFamily: 'mono',
                   },
                   '& pre': {
-                    bg: 'gray.100',
+                    bg: useColorModeValue('gray.100', 'gray.900'),
                     p: 2,
                     borderRadius: 'md',
                     overflow: 'auto',
@@ -98,7 +99,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
                   },
                   '& blockquote': {
                     borderLeft: '3px solid',
-                    borderColor: 'gray.300',
+                    borderColor: useColorModeValue('gray.300', 'gray.600'),
                     pl: 3,
                     ml: 0,
                     mb: 2,
@@ -106,7 +107,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
                   },
                   '& strong': { fontWeight: 'bold' },
                   '& em': { fontStyle: 'italic' },
-                  '& a': { color: 'blue.500', textDecoration: 'underline' },
+                  '& a': { color: useColorModeValue('blue.500', 'blue.300'), textDecoration: 'underline' },
                 }}
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -126,16 +127,16 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
           mb={3}
         >
           <Box
-            bg="gray.100"
-            color="black"
+            bg={useColorModeValue('gray.100', 'gray.700')}
+            color={useColorModeValue('black', 'white')}
             px={4}
             py={3}
             borderRadius="lg"
             maxW="100%"
           >
             <HStack spacing={2}>
-              <Spinner size="sm" color="blue.500" />
-              <Text fontSize="sm" color="gray.600">
+              <Spinner size="sm" color={useColorModeValue('blue.500', 'blue.300')} />
+              <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
                 AI is thinking...
               </Text>
             </HStack>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Flex, VStack, HStack, Text, Button, Input, useToast } from '@chakra-ui/react';
+import { useColorModeValue } from '../ui/color-mode';
 import { ChatSession, ChatMessage } from '../../types/chat';
 import ChatSessionList from './ChatSessionList';
 import ChatMessages from './ChatMessages';
@@ -329,9 +330,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   }, []);
 
   return (
-    <Flex h="calc(100vh - 100px)" bg="gray.50">
+    <Flex h="calc(100vh - 100px)" bg={useColorModeValue('gray.50', 'gray.900')}>
       {/* Left Sidebar - 30% width */}
-      <Box w="30%" bg="white" borderRight="1px" borderColor="gray.200">
+      <Box w="30%" bg={useColorModeValue('white', 'gray.800')} borderRight="1px" borderColor={useColorModeValue('gray.200', 'gray.700')}>
         <ChatSessionList
           sessions={sessions}
           currentSession={currentSession}
@@ -346,9 +347,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       <Box w="70%" p={1}>
         <Box 
           h="full" 
-          bg="white" 
+          bg={useColorModeValue('white', 'gray.800')} 
           border="0.5px" 
-          borderColor="gray.5000" 
+          borderColor={useColorModeValue('gray.200', 'gray.700')} 
           borderRadius="lg"
           overflow="hidden"
         >
@@ -356,8 +357,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             <VStack h="full" spacing={0}>
               {/* Blocked Status Banner */}
               {isBlocked && (
-                <Box w="full" bg="red.50" borderBottom="1px" borderColor="red.200" p={3}>
-                  <Text fontSize="sm" color="red.700" textAlign="center" fontWeight="medium">
+                <Box w="full" bg={useColorModeValue('red.50', 'red.900')} borderBottom="1px" borderColor={useColorModeValue('red.200', 'red.700')} p={3}>
+                  <Text fontSize="sm" color={useColorModeValue('red.700', 'red.200')} textAlign="center" fontWeight="medium">
                     ⚠️ This chat session has been blocked for your safety
                   </Text>
                 </Box>
@@ -369,14 +370,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
               </Box>
 
               {/* Input Area */}
-              <Box w="full" p={4} borderTop="1px" borderColor="gray.200">
+              <Box w="full" p={4} borderTop="1px" borderColor={useColorModeValue('gray.200', 'gray.700')}>
                 <ChatInput onSendMessage={sendMessage} isLoading={isLoading} isBlocked={isBlocked} />
               </Box>
             </VStack>
           ) : (
             <Flex h="full" align="center" justify="center">
               <VStack spacing={4}>
-                <Text fontSize="xl" color="gray.500">
+                <Text fontSize="xl" color={useColorModeValue('gray.500', 'gray.400')}>
                   {CHAT_SELECT_MESSAGE}
                 </Text>
                 <Button colorScheme="blue" onClick={createNewSession}>
