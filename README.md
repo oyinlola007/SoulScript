@@ -16,7 +16,7 @@
 - [Security](#security)
 - [Known Issues & Limitations](#known-issues--limitations)
 - [References](#references)
-- [License](#licence)
+- [License](#license)
 
 ---
 
@@ -51,6 +51,30 @@ SoulScript is a spiritual chatbot web application that enables group administrat
 ---
 
 ## Implementation Details
+
+### Custom Features vs. Template Features
+
+**Features Inherited from FastAPI Full Stack Template:**
+- User authentication, registration, and password reset flows
+- JWT token management
+- Email-based password recovery
+- Admin user management
+- Basic CRUD operations for items
+- Docker Compose setup with Traefik
+- Database migrations with Alembic
+- Pre-commit hooks and code formatting
+- GitHub Actions CI/CD pipeline
+- Testing infrastructure (Pytest, Playwright)
+
+**Custom Features Added:**
+- PDF upload and embedding with OpenAI
+- AI chat interface with streaming responses
+- Content filtering with OpenAI Moderation API
+- Feature flags system
+- Chat session management
+- Admin dashboard for PDFs, feature flags, and content logs
+- Dark mode theming
+- Markdown rendering in chat
 
 ### Backend
 - **Framework:** FastAPI (with SQLModel for ORM, Pydantic for validation, and Alembic for migrations)
@@ -125,10 +149,20 @@ SoulScript is a spiritual chatbot web application that enables group administrat
 ## Setup & Local Development
 
 ### Prerequisites
+
+#### For All Platforms
 - [Docker](https://www.docker.com/) and Docker Compose
+- OpenAI API Key
+
+#### For Unix/Linux/macOS
 - [uv](https://docs.astral.sh/uv/) for Python package management (recommended) or pip
 - Node.js (for frontend development) - use [fnm](https://github.com/Schniz/fnm) or [nvm](https://github.com/nvm-sh/nvm)
-- OpenAI API Key
+
+#### For Windows
+- Python 3.10+ (install from [python.org](https://www.python.org/downloads/))
+- Node.js (install from [nodejs.org](https://nodejs.org/))
+- Git Bash or WSL2 (Windows Subsystem for Linux) for better Unix-like experience
+- Docker Desktop for Windows
 
 ### Quickstart with Docker Compose (Recommended)
 
@@ -138,7 +172,7 @@ git clone <your-repo-url>
 cd SoulScript
 
 # Copy and configure environment variables
-cp .env .env
+cp example.env .env
 # Edit .env to set your OpenAI API key, database, and email settings
 # Make sure to change at least:
 # - SECRET_KEY (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
@@ -161,25 +195,7 @@ docker compose watch
 
 **Note:** The first time you start the stack, it might take a minute for all services to be ready. You can monitor the logs with `docker compose logs` or `docker compose logs backend`.
 
-### Local Development (Without Docker)
-
-#### Backend Development
-```bash
-# Navigate to backend directory
-cd backend
-
-# Install dependencies with uv (recommended)
-uv sync
-source .venv/bin/activate
-
-# Or with pip
-pip install -r requirements.txt
-
-# Start the development server
-fastapi dev app/main.py
-# Or with uvicorn
-uvicorn app.main:app --reload
-```
+### Local Development
 
 #### Frontend Development
 ```bash
