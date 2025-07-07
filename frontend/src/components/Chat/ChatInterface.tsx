@@ -201,6 +201,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       // Fetch the latest messages to ensure the real user message is shown
       await fetchMessages(currentSession.id);
 
+      // Fetch the latest session data to check for blocked status
+      try {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+          const sessionRes = await fetch(`http://api.localhost/api/v1/chat/sessions/${currentSession.id}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (sessionRes.ok) {
+            const updatedSession = await sessionRes.json();
+            setCurrentSession(updatedSession);
+            setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
+            if (updatedSession.is_blocked) {
+              setIsBlocked(true);
+              setBlockedReason(updatedSession.blocked_reason || 'Content violation');
+            } else {
+              setIsBlocked(false);
+              setBlockedReason('');
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore session fetch errors
+      }
+
     } catch (error) {
       // Remove the temporary messages if request failed
       setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id && msg.id !== tempAIMessage.id));

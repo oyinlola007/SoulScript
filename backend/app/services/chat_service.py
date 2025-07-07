@@ -461,8 +461,15 @@ class ChatService:
                 )
                 raise ValueError("Chat session is blocked due to inappropriate content")
 
+            # Save user message (always, even if blocked)
+            user_message = ChatMessage(
+                session_id=session_id, content=content, role="user"
+            )
+            db.add(user_message)
+            db.commit()
+            db.refresh(user_message)
+
             # Content filtering for user input
-            logger.info("=== STEP 0: Content filtering for user input ===")
             filter_result = content_filter_service.filter_content(
                 content=content,
                 user_id=user_id,
@@ -488,19 +495,18 @@ class ChatService:
                     blocked_reason=filter_result["blocked_reason"],
                 )
 
+                # Save the blocked message to chat history
+                blocked_message = ChatMessage(
+                    session_id=session_id, content=BLOCKED_CONTENT_MESSAGE, role="ai"
+                )
+                db.add(blocked_message)
+                db.commit()
+                db.refresh(blocked_message)
+
                 logger.error(
                     f"Content blocked for user {user_id}: {filter_result['blocked_reason']}"
                 )
                 raise ValueError(f"Content blocked: {filter_result['blocked_reason']}")
-
-            # Save user message (only if content is allowed)
-            user_message = ChatMessage(
-                session_id=session_id, content=content, role="user"
-            )
-            db.add(user_message)
-            db.commit()
-            db.refresh(user_message)
-            logger.info(f"Saved user message with ID: {user_message.id}")
 
             # Get AI response
             if not self.chat_pipeline:
@@ -616,7 +622,7 @@ class ChatService:
                     blocked_reason=ai_filter_result["blocked_reason"],
                 )
 
-                # Replace AI content with blocked message
+                # Replace AI content with blocked message and save to database
                 ai_content = AI_RESPONSE_BLOCKED_MESSAGE
                 logger.warning(
                     f"AI response blocked for user {user_id}: {ai_filter_result['blocked_reason']}"
@@ -766,6 +772,14 @@ class ChatService:
                 yield BLOCKED_CONTENT_MESSAGE
                 return
 
+            # Save user message (always, even if blocked)
+            user_message = ChatMessage(
+                session_id=session_id, content=content, role="user"
+            )
+            db.add(user_message)
+            db.commit()
+            db.refresh(user_message)
+
             # Content filtering for user input
             filter_result = content_filter_service.filter_content(
                 content=content,
@@ -787,16 +801,15 @@ class ChatService:
                     session_id=session_id,
                     blocked_reason=filter_result["blocked_reason"],
                 )
+                # Save the blocked message to chat history
+                blocked_message = ChatMessage(
+                    session_id=session_id, content=BLOCKED_CONTENT_MESSAGE, role="ai"
+                )
+                db.add(blocked_message)
+                db.commit()
+                db.refresh(blocked_message)
                 yield BLOCKED_CONTENT_MESSAGE
                 return
-
-            # Save user message
-            user_message = ChatMessage(
-                session_id=session_id, content=content, role="user"
-            )
-            db.add(user_message)
-            db.commit()
-            db.refresh(user_message)
 
             # Get context and feature flags
             chat_history = self._get_chat_history(str(session_id), db)
