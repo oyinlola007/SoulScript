@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from sqlmodel import func, select, Session
+from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -310,3 +311,33 @@ async def test_ai_behavior(request: dict, session: SessionDep):
     except Exception as e:
         logger.error(f"AI behavior test failed: {e}")
         return {"status": "error", "message": str(e)}
+
+
+@router.post("/sessions/{session_id}/stream")
+async def stream_chat_message(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    session_id: uuid.UUID,
+    message_in: ChatMessageCreate,
+):
+    """
+    Stream AI response for a chat session.
+    """
+    # Verify session ownership
+    session_statement = select(ChatSession).where(
+        ChatSession.id == session_id, ChatSession.owner_id == current_user.id
+    )
+    chat_session = session.exec(session_statement).first()
+    if not chat_session:
+
+        def error_gen():
+            yield "Session not found or access denied."
+
+        return StreamingResponse(error_gen(), media_type="text/event-stream")
+
+    # Stream the AI response
+    generator = chat_service.stream_message(
+        session, session_id, current_user.id, message_in.content
+    )
+    return StreamingResponse(generator, media_type="text/event-stream")
