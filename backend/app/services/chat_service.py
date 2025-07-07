@@ -734,6 +734,141 @@ class ChatService:
             "last_message": messages[-1] if messages else None,
         }
 
+    async def stream_message(
+        self, db: Session, session_id: uuid.UUID, user_id: uuid.UUID, content: str
+    ):
+        """Streaming AI response implementation"""
+        try:
+            logger.info(
+                f"=== START: Streaming message for session {session_id}, user {user_id} ==="
+            )
+            logger.info(
+                f"User message: '{content[:100]}{'...' if len(content) > 100 else ''}'"
+            )
+
+            # Get the session
+            session_statement = select(ChatSession).where(
+                ChatSession.id == session_id, ChatSession.owner_id == user_id
+            )
+            session = db.exec(session_statement).first()
+
+            if not session:
+                logger.error(
+                    f"Session {session_id} not found or access denied for user {user_id}"
+                )
+                yield "Session not found or access denied."
+                return
+
+            if session.is_blocked:
+                logger.warning(
+                    f"Chat session {session_id} is blocked due to: {session.blocked_reason}"
+                )
+                yield BLOCKED_CONTENT_MESSAGE
+                return
+
+            # Content filtering for user input
+            filter_result = content_filter_service.filter_content(
+                content=content,
+                user_id=user_id,
+                session_id=session_id,
+                content_type="user_input",
+            )
+            if not filter_result["is_allowed"]:
+                content_filter_service.log_violation(
+                    db=db,
+                    user_id=user_id,
+                    session_id=session_id,
+                    content_type="user_input",
+                    original_content=content,
+                    blocked_reason=filter_result["blocked_reason"],
+                )
+                content_filter_service.block_chat_session(
+                    db=db,
+                    session_id=session_id,
+                    blocked_reason=filter_result["blocked_reason"],
+                )
+                yield BLOCKED_CONTENT_MESSAGE
+                return
+
+            # Save user message
+            user_message = ChatMessage(
+                session_id=session_id, content=content, role="user"
+            )
+            db.add(user_message)
+            db.commit()
+            db.refresh(user_message)
+
+            # Get context and feature flags
+            chat_history = self._get_chat_history(str(session_id), db)
+            pdf_context = self._get_pdf_context(user_id, content)
+            active_flags_prompt = feature_flag_service.get_active_flags_prompt_text(db)
+            enhanced_query = content
+            if pdf_context:
+                enhanced_query = f"Context from your documents:\n{pdf_context}\n\nUser question: {content}\n\nPlease search the provided context and cite specific passages when answering."
+            if active_flags_prompt:
+                enhanced_query = f"{active_flags_prompt}\n\n{enhanced_query}"
+
+            from langchain_core.messages import HumanMessage
+
+            user_langchain_message = HumanMessage(content=content)
+            chat_history.add_message(user_langchain_message)
+            messages = chat_history.messages.copy()
+
+            # Stream AI response
+            if not self.chat_pipeline:
+                logger.error("Chat pipeline not available")
+                yield "AI chat pipeline not available."
+                return
+
+            # Use LangChain's astream for streaming
+            ai_content = ""
+            async for chunk in self.chat_pipeline.astream(
+                {"query": enhanced_query, "history": messages}
+            ):
+                token = chunk.content if hasattr(chunk, "content") else str(chunk)
+                ai_content += token
+                yield token
+
+            # Content filtering for AI response (after streaming)
+            ai_filter_result = content_filter_service.filter_content(
+                content=ai_content,
+                user_id=user_id,
+                session_id=session_id,
+                content_type="ai_response",
+            )
+            if not ai_filter_result["is_allowed"]:
+                content_filter_service.log_violation(
+                    db=db,
+                    user_id=user_id,
+                    session_id=session_id,
+                    content_type="ai_response",
+                    original_content=ai_content,
+                    blocked_reason=ai_filter_result["blocked_reason"],
+                )
+                content_filter_service.block_chat_session(
+                    db=db,
+                    session_id=session_id,
+                    blocked_reason=ai_filter_result["blocked_reason"],
+                )
+                yield AI_RESPONSE_BLOCKED_MESSAGE
+                return
+
+            # Save AI message
+            from langchain_core.messages import AIMessage
+
+            ai_langchain_message = AIMessage(content=ai_content)
+            chat_history.add_message(ai_langchain_message)
+            ai_message = ChatMessage(
+                session_id=session_id, content=ai_content, role="ai"
+            )
+            db.add(ai_message)
+            db.commit()
+            db.refresh(ai_message)
+
+        except Exception as e:
+            logger.error(f"Error in stream_message: {e}")
+            yield f"[Error] {str(e)}"
+
 
 # Global instance
 chat_service = ChatService()

@@ -126,8 +126,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
     // Add user message immediately
     setMessages(prev => [...prev, tempUserMessage]);
-    
     setIsLoading(true);
+
+    // Create a temporary AI message for streaming
+    const tempAIMessage: ChatMessage = {
+      id: `ai-temp-${Date.now()}`,
+      session_id: currentSession.id,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, tempAIMessage]);
+
+    let firstTokenReceived = false;
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
@@ -135,7 +146,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
         return;
       }
 
-      const response = await fetch(`http://api.localhost/api/v1/chat/sessions/${currentSession.id}/messages`, {
+      // If this is the first message and session title is default, update session title
+      if (currentSession.title === 'New Chat' && messages.length === 0) {
+        const truncatedTitle = content.length > 40 ? content.slice(0, 40) + '…' : content;
+        await updateSessionTitle(currentSession.id, truncatedTitle);
+      }
+
+      const response = await fetch(`http://api.localhost/api/v1/chat/sessions/${currentSession.id}/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,63 +163,51 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           role: "user",
         }),
       });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Replace the temporary user message with the real one and add AI message
-        setMessages(prev => {
-          const filtered = prev.filter(msg => msg.id !== tempUserMessage.id);
-          return [...filtered, result.user_message, result.ai_message];
-        });
-        
-        // Update session title if it was auto-generated
-        if (result.session.title !== currentSession.title) {
-          setCurrentSession(result.session);
-          setSessions(prev => 
-            prev.map(s => s.id === result.session.id ? result.session : s)
-          );
-        }
-      } else {
-        // Remove the temporary message if request failed
-        setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
-        
-        // Check if it's a content blocking error
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 400 && errorData.detail && errorData.detail.includes('Content blocked:')) {
-          const blockedReason = errorData.detail.replace('Content blocked: ', '');
-          setIsBlocked(true);
-          setBlockedReason(blockedReason);
-          
-          // Update the current session and sessions list to reflect blocked status
-          const updatedSession = {
-            ...currentSession,
-            is_blocked: true,
-            blocked_reason: blockedReason
-          };
-          setCurrentSession(updatedSession);
-          setSessions(prev => 
-            prev.map(s => s.id === currentSession.id ? updatedSession : s)
-          );
-          
-          // Add a system message about the blocking
-          const systemMessage: ChatMessage = {
-            id: `blocked-${Date.now()}`,
-            session_id: currentSession.id,
-            role: 'assistant',
-            content: BLOCKED_CONTENT_MESSAGE,
-            created_at: new Date().toISOString()
-          };
-          setMessages(prev => [...prev, systemMessage]);
-        } else {
-          showErrorToast('Failed to send message');
+
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to stream AI response');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let aiContent = '';
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value);
+          aiContent += chunk;
+          setMessages(prev => prev.map(msg =>
+            msg.id === tempAIMessage.id ? { ...msg, content: aiContent } : msg
+          ));
+          // As soon as the first token is received, stop showing AI is thinking
+          if (!firstTokenReceived && chunk.trim() !== '') {
+            setIsLoading(false);
+            firstTokenReceived = true;
+          }
         }
       }
+
+      // Finalize the AI message (replace temp IDs if needed)
+      setMessages(prev => {
+        // Remove the temp user message (if not already replaced)
+        const filtered = prev.filter(msg => msg.id !== tempUserMessage.id);
+        // The AI message is already updated in place
+        return filtered;
+      });
+
+      // Fetch the latest messages to ensure the real user message is shown
+      await fetchMessages(currentSession.id);
+
     } catch (error) {
-      // Remove the temporary message if request failed
-      setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
+      // Remove the temporary messages if request failed
+      setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id && msg.id !== tempAIMessage.id));
       showErrorToast('Failed to send message');
+      setIsLoading(false);
     } finally {
+      // If no token was received, ensure loading is stopped
       setIsLoading(false);
     }
   };

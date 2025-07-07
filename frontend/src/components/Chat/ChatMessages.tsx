@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { Box, VStack, HStack, Text, Avatar, Flex, Spinner } from '@chakra-ui/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -9,16 +9,18 @@ interface ChatMessagesProps {
   isLoading?: boolean;
 }
 
+function useChatScroll(dep: any) {
+  const ref = useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (ref.current) {
+      ref.current.scrollTop = ref.current.scrollHeight;
+    }
+  }, [dep]);
+  return ref;
+}
+
 const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const chatScrollRef = useChatScroll(messages[messages.length - 1]?.content);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -36,7 +38,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
   }
 
   return (
-    <Box p={4} display="flex" flexDirection="column">
+    <Box p={4} display="flex" flexDirection="column" ref={chatScrollRef} style={{ overflowY: 'auto', height: '100%' }}>
       {messages.map((message, index) => (
         <Box
           key={index}
