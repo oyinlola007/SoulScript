@@ -9,6 +9,12 @@ import {
   Input,
 } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  PaginationRoot,
+  PaginationPrevTrigger,
+  PaginationItems,
+  PaginationNextTrigger,
+} from "@/components/ui/pagination.tsx"
 
 
 interface ContentFilterLog {
@@ -31,8 +37,9 @@ interface FilterStats {
 export const ContentFilterLogs: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
-  const [skip, setSkip] = useState(0);
-  const [limit] = useState(20);
+  const [page, setPage] = useState(1);
+  const limit = 20;
+  const skip = (page - 1) * limit;
 
   // Fetch content filter logs
   const { data: logsData, isLoading, error } = useQuery({
@@ -96,18 +103,6 @@ export const ContentFilterLogs: React.FC = () => {
     today_violations: 0,
     user_input_violations: 0,
     ai_response_violations: 0,
-  };
-
-  const handlePrevious = () => {
-    if (skip > 0) {
-      setSkip(Math.max(0, skip - limit));
-    }
-  };
-
-  const handleNext = () => {
-    if (logs.length === limit) {
-      setSkip(skip + limit);
-    }
   };
 
   const getContentPreview = (content: string) => {
@@ -203,7 +198,7 @@ export const ContentFilterLogs: React.FC = () => {
             onClick={() => {
               setSelectedUser('');
               setSelectedType('');
-              setSkip(0);
+              setPage(1);
             }}
           >
             Clear Filters
@@ -260,25 +255,20 @@ export const ContentFilterLogs: React.FC = () => {
         </Box>
 
         {/* Pagination */}
-        <HStack justify="center" gap={4}>
-          <Button
-            size="sm"
-            onClick={handlePrevious}
-            disabled={skip === 0}
+        <Box display="flex" justifyContent="flex-end" mt={4}>
+          <PaginationRoot
+            count={logsData?.count || 0}
+            pageSize={limit}
+            onPageChange={({ page }) => setPage(page)}
+            page={page}
           >
-            Previous
-          </Button>
-          <Text fontSize="sm">
-            Showing {skip + 1} - {skip + logs.length} of {logsData?.count || 0}
-          </Text>
-          <Button
-            size="sm"
-            onClick={handleNext}
-            disabled={logs.length < limit}
-          >
-            Next
-          </Button>
-        </HStack>
+            <HStack>
+              <PaginationPrevTrigger />
+              <PaginationItems />
+              <PaginationNextTrigger />
+            </HStack>
+          </PaginationRoot>
+        </Box>
       </VStack>
     </Box>
   );
