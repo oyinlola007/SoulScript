@@ -38,7 +38,7 @@ interface FilterStats {
 
 // Content Filter Service
 class ContentFilterService {
-  static async getLogs(skip: number, limit: number, userId?: string, contentType?: string) {
+  static async getLogs(skip: number, limit: number, userId?: string, contentType?: string): Promise<{ data: ContentFilterLog[]; count: number }> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -60,14 +60,14 @@ class ContentFilterService {
         },
       });
 
-      return response;
+      return response as { data: ContentFilterLog[]; count: number };
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async getStatistics() {
+  static async getStatistics(): Promise<FilterStats> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -83,7 +83,7 @@ class ContentFilterService {
         url: `/api/v1/content-filter/statistics`,
       });
 
-      return response;
+      return response as FilterStats;
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
@@ -101,7 +101,7 @@ export const ContentFilterLogs: React.FC = () => {
   // Fetch content filter logs
   const { data: logsData, isLoading, error } = useQuery({
     queryKey: ['content-filter-logs', skip, limit, selectedUser, selectedType],
-    queryFn: async () => {
+    queryFn: async (): Promise<{ data: ContentFilterLog[]; count: number }> => {
       return await ContentFilterService.getLogs(skip, limit, selectedUser || undefined, selectedType || undefined);
     },
   });
@@ -109,7 +109,7 @@ export const ContentFilterLogs: React.FC = () => {
   // Fetch content filter statistics
   const { data: statsData } = useQuery({
     queryKey: ['content-filter-stats'],
-    queryFn: async () => {
+    queryFn: async (): Promise<FilterStats> => {
       return await ContentFilterService.getStatistics();
     },
   });

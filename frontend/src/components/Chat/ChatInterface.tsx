@@ -15,7 +15,7 @@ interface ChatInterfaceProps {}
 
 // Chat Service
 class ChatService {
-  static async getSessions() {
+  static async getSessions(): Promise<{ data: ChatSession[] }> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -31,14 +31,14 @@ class ChatService {
         url: `/api/v1/chat/sessions`,
       });
 
-      return response;
+      return response as { data: ChatSession[] };
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async getMessages(sessionId: string) {
+  static async getMessages(sessionId: string): Promise<{ data: ChatMessage[] }> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -54,14 +54,14 @@ class ChatService {
         url: `/api/v1/chat/sessions/${sessionId}/messages`,
       });
 
-      return response;
+      return response as { data: ChatMessage[] };
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async getSession(sessionId: string) {
+  static async getSession(sessionId: string): Promise<ChatSession> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -77,14 +77,14 @@ class ChatService {
         url: `/api/v1/chat/sessions/${sessionId}`,
       });
 
-      return response;
+      return response as ChatSession;
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async createSession(title: string) {
+  static async createSession(title: string): Promise<ChatSession> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -102,14 +102,14 @@ class ChatService {
         mediaType: "application/json",
       });
 
-      return response;
+      return response as ChatSession;
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async streamMessage(sessionId: string, content: string, role: string) {
+  static async streamMessage(sessionId: string, content: string, role: string): Promise<Response> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -135,7 +135,7 @@ class ChatService {
     return response;
   }
 
-  static async deleteSession(sessionId: string) {
+  static async deleteSession(sessionId: string): Promise<any> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -158,7 +158,7 @@ class ChatService {
     }
   }
 
-  static async updateSessionTitle(sessionId: string, title: string) {
+  static async updateSessionTitle(sessionId: string, title: string): Promise<ChatSession> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -176,7 +176,7 @@ class ChatService {
         mediaType: "application/json",
       });
 
-      return response;
+      return response as ChatSession;
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
