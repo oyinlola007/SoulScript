@@ -47,7 +47,7 @@ interface PDFDocumentsResponse {
 
 // PDF Service
 class PDFService {
-  static async getPDFs() {
+  static async getPDFs(): Promise<PDFDocumentsResponse> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -63,14 +63,14 @@ class PDFService {
         url: `/api/v1/pdfs/`,
       });
 
-      return response;
+      return response as PDFDocumentsResponse;
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async downloadPDF(pdfId: string) {
+  static async downloadPDF(pdfId: string): Promise<Blob> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -90,7 +90,7 @@ class PDFService {
     return response.blob();
   }
 
-  static async deletePDF(pdfId: string) {
+  static async deletePDF(pdfId: string): Promise<any> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");

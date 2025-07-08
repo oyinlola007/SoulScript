@@ -47,7 +47,7 @@ interface CreateFlagData {
 
 // Feature Flag Service
 class FeatureFlagService {
-  static async getFeatureFlags() {
+  static async getFeatureFlags(): Promise<{ data: FeatureFlag[] }> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -63,14 +63,14 @@ class FeatureFlagService {
         url: `/api/v1/feature-flags/`,
       });
 
-      return response;
+      return response as { data: FeatureFlag[] };
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async toggleFeatureFlag(flagId: string) {
+  static async toggleFeatureFlag(flagId: string): Promise<FeatureFlag> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -86,14 +86,14 @@ class FeatureFlagService {
         url: `/api/v1/feature-flags/${flagId}/toggle`,
       });
 
-      return response;
+      return response as FeatureFlag;
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async createFeatureFlag(flagData: CreateFlagData) {
+  static async createFeatureFlag(flagData: CreateFlagData): Promise<FeatureFlag> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
@@ -111,14 +111,14 @@ class FeatureFlagService {
         mediaType: "application/json",
       });
 
-      return response;
+      return response as FeatureFlag;
     } finally {
       // Restore original token
       OpenAPI.TOKEN = originalToken;
     }
   }
 
-  static async deleteFeatureFlag(flagId: string) {
+  static async deleteFeatureFlag(flagId: string): Promise<any> {
     const token = localStorage.getItem("access_token");
     if (!token) {
       throw new Error("No authentication token found");
