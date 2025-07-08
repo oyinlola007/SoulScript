@@ -41,7 +41,7 @@ export type OpenAPIConfig = {
 }
 
 export const OpenAPI: OpenAPIConfig = {
-  BASE: "http://api.localhost",
+  BASE: import.meta.env.VITE_API_URL || "http://localhost:8000",
   CREDENTIALS: "include",
   ENCODE_PATH: undefined,
   HEADERS: undefined,
