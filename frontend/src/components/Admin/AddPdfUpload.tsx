@@ -23,11 +23,38 @@ import {
   DialogTrigger,
 } from "../ui/dialog"
 import { Field } from "../ui/field"
+import { OpenAPI } from '@/client/core/OpenAPI';
 
 interface PdfUploadForm {
   title: string
   description: string
   file: File | null
+}
+
+// PDF Upload Service
+class PDFUploadService {
+  static async uploadPDF(formData: FormData) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // For file uploads, we need to use fetch directly since FormData requires special handling
+    const response = await fetch(`${OpenAPI.BASE}/api/v1/pdfs/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Upload failed");
+    }
+
+    return await response.json();
+  }
 }
 
 const AddPdfUpload = () => {
@@ -67,27 +94,7 @@ const AddPdfUpload = () => {
       }
       formData.append("file", data.file)
 
-      // Get the auth token
-      const token = localStorage.getItem("access_token")
-      if (!token) {
-        throw new Error("No authentication token found")
-      }
-
-      // Make direct HTTP request for file upload
-      const response = await fetch("http://api.localhost/api/v1/pdfs/", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || "Upload failed")
-      }
-
-      return await response.json()
+      return await PDFUploadService.uploadPDF(formData);
     },
     onSuccess: () => {
       showSuccessToast("PDF uploaded successfully.")

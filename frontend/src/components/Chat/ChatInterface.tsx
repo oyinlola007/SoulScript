@@ -8,8 +8,181 @@ import ChatInput from './ChatInput';
 import useAuth from '../../hooks/useAuth';
 import useCustomToast from '../../hooks/useCustomToast';
 import { BLOCKED_CONTENT_MESSAGE, BLOCKED_SESSION_DELETE_ERROR, CHAT_SELECT_MESSAGE, START_NEW_CHAT_BUTTON } from '../../constants/prompts';
+import { OpenAPI } from '@/client/core/OpenAPI';
+import { request } from '@/client/core/request';
 
 interface ChatInterfaceProps {}
+
+// Chat Service
+class ChatService {
+  static async getSessions() {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "GET",
+        url: `/api/v1/chat/sessions`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async getMessages(sessionId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "GET",
+        url: `/api/v1/chat/sessions/${sessionId}/messages`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async getSession(sessionId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "GET",
+        url: `/api/v1/chat/sessions/${sessionId}`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async createSession(title: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "POST",
+        url: `/api/v1/chat/sessions`,
+        body: { title },
+        mediaType: "application/json",
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async streamMessage(sessionId: string, content: string, role: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // For streaming, we need to use fetch directly since the request function is for JSON
+    const response = await fetch(`${OpenAPI.BASE}/api/v1/chat/sessions/${sessionId}/stream`, {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        content,
+        role,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to stream AI response');
+    }
+
+    return response;
+  }
+
+  static async deleteSession(sessionId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "DELETE",
+        url: `/api/v1/chat/sessions/${sessionId}`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async updateSessionTitle(sessionId: string, title: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "PUT",
+        url: `/api/v1/chat/sessions/${sessionId}`,
+        body: { title },
+        mediaType: "application/json",
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+}
 
 const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -24,24 +197,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   // Fetch user's chat sessions
   const fetchSessions = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        showErrorToast('No authentication token found');
-        return;
-      }
-
-      const response = await fetch('http://api.localhost/api/v1/chat/sessions', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSessions(data.data);
-      } else {
-        showErrorToast('Failed to load chat sessions');
-      }
+      const data = await ChatService.getSessions();
+      setSessions(data.data);
     } catch (error) {
       showErrorToast('Failed to load chat sessions');
     }
@@ -50,24 +207,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   // Fetch messages for a session
   const fetchMessages = async (sessionId: string) => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        showErrorToast('No authentication token found');
-        return;
-      }
-
-      const response = await fetch(`http://api.localhost/api/v1/chat/sessions/${sessionId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.data);
-      } else {
-        showErrorToast('Failed to load messages');
-      }
+      const data = await ChatService.getMessages(sessionId);
+      setMessages(data.data);
     } catch (error) {
       showErrorToast('Failed to load messages');
     }
@@ -76,34 +217,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   // Create a new chat session
   const createNewSession = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        showErrorToast('No authentication token found');
-        return;
-      }
-
-      const response = await fetch('http://api.localhost/api/v1/chat/sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: 'New Chat',
-        }),
-      });
-      
-      if (response.ok) {
-        const newSession = await response.json();
-        setSessions(prev => [newSession, ...prev]);
-        setCurrentSession(newSession);
-        setMessages([]);
-        setIsLoading(false);
-        setIsBlocked(false);
-        setBlockedReason('');
-      } else {
-        showErrorToast('Failed to create new session');
-      }
+      const newSession = await ChatService.createSession('New Chat');
+      setSessions(prev => [newSession, ...prev]);
+      setCurrentSession(newSession);
+      setMessages([]);
+      setIsLoading(false);
+      setIsBlocked(false);
+      setBlockedReason('');
     } catch (error) {
       showErrorToast('Failed to create new session');
     }
@@ -141,31 +261,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
     let firstTokenReceived = false;
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        showErrorToast('No authentication token found');
-        return;
-      }
-
       // If this is the first message and session title is default, update session title
       if (currentSession.title === 'New Chat' && messages.length === 0) {
         const truncatedTitle = content.length > 40 ? content.slice(0, 40) + '…' : content;
         await updateSessionTitle(currentSession.id, truncatedTitle);
       }
 
-      const response = await fetch(`http://api.localhost/api/v1/chat/sessions/${currentSession.id}/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          content,
-          role: "user",
-        }),
-      });
+      const response = await ChatService.streamMessage(currentSession.id, content, "user");
 
-      if (!response.ok || !response.body) {
+      if (!response.body) {
         throw new Error('Failed to stream AI response');
       }
 
@@ -204,23 +308,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
 
       // Fetch the latest session data to check for blocked status
       try {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-          const sessionRes = await fetch(`http://api.localhost/api/v1/chat/sessions/${currentSession.id}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (sessionRes.ok) {
-            const updatedSession = await sessionRes.json();
-            setCurrentSession(updatedSession);
-            setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
-            if (updatedSession.is_blocked) {
-              setIsBlocked(true);
-              setBlockedReason(updatedSession.blocked_reason || 'Content violation');
-            } else {
-              setIsBlocked(false);
-              setBlockedReason('');
-            }
-          }
+        const updatedSession = await ChatService.getSession(currentSession.id);
+        setCurrentSession(updatedSession);
+        setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
+        if (updatedSession.is_blocked) {
+          setIsBlocked(true);
+          setBlockedReason(updatedSession.blocked_reason || 'Content violation');
+        } else {
+          setIsBlocked(false);
+          setBlockedReason('');
         }
       } catch (e) {
         // Ignore session fetch errors
@@ -257,67 +353,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   // Delete a session
   const deleteSession = async (sessionId: string) => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        showErrorToast('No authentication token found');
-        return;
+      await ChatService.deleteSession(sessionId);
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      if (currentSession?.id === sessionId) {
+        setCurrentSession(null);
+        setMessages([]);
       }
-
-      const response = await fetch(`http://api.localhost/api/v1/chat/sessions/${sessionId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        setSessions(prev => prev.filter(s => s.id !== sessionId));
-        if (currentSession?.id === sessionId) {
-          setCurrentSession(null);
-          setMessages([]);
-        }
-        showSuccessToast('Session deleted successfully');
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 400 && errorData.detail && errorData.detail.includes('Cannot delete a blocked session')) {
-          showErrorToast(BLOCKED_SESSION_DELETE_ERROR);
-        } else {
-          showErrorToast('Failed to delete session');
-        }
-      }
+      showSuccessToast('Session deleted successfully');
     } catch (error) {
-      showErrorToast('Failed to delete session');
+      if (error instanceof Error && error.message.includes('Cannot delete a blocked session')) {
+        showErrorToast(BLOCKED_SESSION_DELETE_ERROR);
+      } else {
+        showErrorToast('Failed to delete session');
+      }
     }
   };
 
   // Update session title
   const updateSessionTitle = async (sessionId: string, title: string) => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        showErrorToast('No authentication token found');
-        return;
-      }
-
-      const response = await fetch(`http://api.localhost/api/v1/chat/sessions/${sessionId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title }),
-      });
-      
-      if (response.ok) {
-        const updatedSession = await response.json();
-        setSessions(prev => 
-          prev.map(s => s.id === sessionId ? updatedSession : s)
-        );
-        if (currentSession?.id === sessionId) {
-          setCurrentSession(updatedSession);
-        }
-      } else {
-        showErrorToast('Failed to update session title');
+      const updatedSession = await ChatService.updateSessionTitle(sessionId, title);
+      setSessions(prev => 
+        prev.map(s => s.id === sessionId ? updatedSession : s)
+      );
+      if (currentSession?.id === sessionId) {
+        setCurrentSession(updatedSession);
       }
     } catch (error) {
       showErrorToast('Failed to update session title');

@@ -26,6 +26,8 @@ import {
   DialogActionTrigger,
 } from '../ui/dialog';
 import { Field } from '../ui/field';
+import { OpenAPI } from '@/client/core/OpenAPI';
+import { request } from '@/client/core/request';
 
 interface FeatureFlag {
   id: string;
@@ -41,6 +43,103 @@ interface CreateFlagData {
   name: string;
   description: string;
   is_enabled: boolean;
+}
+
+// Feature Flag Service
+class FeatureFlagService {
+  static async getFeatureFlags() {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "GET",
+        url: `/api/v1/feature-flags/`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async toggleFeatureFlag(flagId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "POST",
+        url: `/api/v1/feature-flags/${flagId}/toggle`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async createFeatureFlag(flagData: CreateFlagData) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "POST",
+        url: `/api/v1/feature-flags/`,
+        body: flagData,
+        mediaType: "application/json",
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async deleteFeatureFlag(flagId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "DELETE",
+        url: `/api/v1/feature-flags/${flagId}`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
 }
 
 export const FeatureFlags: React.FC = () => {
@@ -63,50 +162,14 @@ export const FeatureFlags: React.FC = () => {
   const { data: flagsData, isLoading, error } = useQuery({
     queryKey: ['feature-flags'],
     queryFn: async () => {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch("http://api.localhost/api/v1/feature-flags/", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to fetch feature flags");
-      }
-
-      return await response.json();
+      return await FeatureFlagService.getFeatureFlags();
     },
   });
 
   // Toggle feature flag
   const toggleMutation = useMutation({
     mutationFn: async (flagId: string) => {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch(`http://api.localhost/api/v1/feature-flags/${flagId}/toggle`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to toggle feature flag");
-      }
-
-      return await response.json();
+      return await FeatureFlagService.toggleFeatureFlag(flagId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feature-flags'] });
@@ -124,26 +187,7 @@ export const FeatureFlags: React.FC = () => {
   // Create new feature flag
   const createMutation = useMutation({
     mutationFn: async (flagData: CreateFlagData) => {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch("http://api.localhost/api/v1/feature-flags/", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(flagData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to create feature flag");
-      }
-
-      return await response.json();
+      return await FeatureFlagService.createFeatureFlag(flagData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feature-flags'] });
@@ -159,25 +203,7 @@ export const FeatureFlags: React.FC = () => {
   // Delete feature flag
   const deleteMutation = useMutation({
     mutationFn: async (flagId: string) => {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch(`http://api.localhost/api/v1/feature-flags/${flagId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to delete feature flag");
-      }
-
-      return await response.json();
+      return await FeatureFlagService.deleteFeatureFlag(flagId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feature-flags'] });
