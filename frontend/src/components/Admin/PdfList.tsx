@@ -24,6 +24,8 @@ import {
 import useCustomToast from "@/hooks/useCustomToast"
 import { useState } from "react"
 import React from "react"
+import { OpenAPI } from '@/client/core/OpenAPI';
+import { request } from '@/client/core/request';
 
 interface PDFDocument {
   id: string
@@ -43,6 +45,75 @@ interface PDFDocumentsResponse {
   count: number
 }
 
+// PDF Service
+class PDFService {
+  static async getPDFs() {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "GET",
+        url: `/api/v1/pdfs/`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async downloadPDF(pdfId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // For file downloads, we need to use fetch directly since the request function is for JSON
+    const response = await fetch(`${OpenAPI.BASE}/api/v1/pdfs/${pdfId}/download`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF: ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  static async deletePDF(pdfId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "DELETE",
+        url: `/api/v1/pdfs/${pdfId}`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+}
+
 const PdfList = () => {
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -55,22 +126,7 @@ const PdfList = () => {
   const { data: pdfsResponse, isLoading, error, refetch } = useQuery<PDFDocumentsResponse>({
     queryKey: ["pdfs"],
     queryFn: async () => {
-      const token = localStorage.getItem("access_token")
-      if (!token) {
-        throw new Error("No authentication token found")
-      }
-
-      const response = await fetch("http://api.localhost/api/v1/pdfs/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch PDFs")
-      }
-
-      return await response.json()
+      return await PDFService.getPDFs();
     },
     // Auto-refresh every 5 seconds if there are processing PDFs
     refetchInterval: (query: any) => {
@@ -84,24 +140,8 @@ const PdfList = () => {
   })
 
   const handleViewPdf = async (pdf: PDFDocument) => {
-    const token = localStorage.getItem("access_token")
-    if (!token) {
-      showErrorToast("Please log in to view PDFs")
-      return
-    }
-    
     try {
-      const response = await fetch(`http://api.localhost/api/v1/pdfs/${pdf.id}/download`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status}`)
-      }
-      
-      const blob = await response.blob()
+      const blob = await PDFService.downloadPDF(pdf.id);
       const url = window.URL.createObjectURL(blob)
       window.open(url, '_blank')
     } catch (error) {
@@ -128,23 +168,9 @@ const PdfList = () => {
     setDeleteStep("Starting deletion...")
 
     try {
-      const token = localStorage.getItem("access_token")
-      if (!token) {
-        throw new Error("No access token found")
-      }
-
       setDeleteStep("Deleting PDF file and database record...")
 
-      const response = await fetch(`http://api.localhost/api/v1/pdfs/${deletingPdf.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete PDF: ${response.status}`)
-      }
+      await PDFService.deletePDF(deletingPdf.id);
 
       setDeleteStep("Deletion completed successfully!")
 

@@ -16,7 +16,8 @@ import {
   PaginationNextTrigger,
 } from "@/components/ui/pagination.tsx"
 import { useColorModeValue } from '../ui/color-mode';
-
+import { OpenAPI } from '@/client/core/OpenAPI';
+import { request } from '@/client/core/request';
 
 interface ContentFilterLog {
   id: string;
@@ -35,6 +36,61 @@ interface FilterStats {
   ai_response_violations: number;
 }
 
+// Content Filter Service
+class ContentFilterService {
+  static async getLogs(skip: number, limit: number, userId?: string, contentType?: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "GET",
+        url: `/api/v1/content-filter/logs`,
+        query: {
+          skip,
+          limit,
+          ...(userId && { user_id: userId }),
+          ...(contentType && { content_type: contentType }),
+        },
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+
+  static async getStatistics() {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "GET",
+        url: `/api/v1/content-filter/statistics`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+}
+
 export const ContentFilterLogs: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
@@ -46,29 +102,7 @@ export const ContentFilterLogs: React.FC = () => {
   const { data: logsData, isLoading, error } = useQuery({
     queryKey: ['content-filter-logs', skip, limit, selectedUser, selectedType],
     queryFn: async () => {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      let url = `http://api.localhost/api/v1/content-filter/logs?skip=${skip}&limit=${limit}`;
-      if (selectedUser) url += `&user_id=${selectedUser}`;
-      if (selectedType) url += `&content_type=${selectedType}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to fetch content filter logs");
-      }
-
-      return await response.json();
+      return await ContentFilterService.getLogs(skip, limit, selectedUser || undefined, selectedType || undefined);
     },
   });
 
@@ -76,25 +110,7 @@ export const ContentFilterLogs: React.FC = () => {
   const { data: statsData } = useQuery({
     queryKey: ['content-filter-stats'],
     queryFn: async () => {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch("http://api.localhost/api/v1/content-filter/statistics", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to fetch statistics");
-      }
-
-      return await response.json();
+      return await ContentFilterService.getStatistics();
     },
   });
 

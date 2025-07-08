@@ -19,6 +19,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import useCustomToast from "@/hooks/useCustomToast"
+import { OpenAPI } from '@/client/core/OpenAPI';
+import { request } from '@/client/core/request';
 
 interface PdfDocument {
   id: string
@@ -41,6 +43,52 @@ interface PdfActionsMenuProps {
   disabled?: boolean
 }
 
+// PDF Service (reused from PdfList.tsx)
+class PDFService {
+  static async downloadPDF(pdfId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // For file downloads, we need to use fetch directly since the request function is for JSON
+    const response = await fetch(`${OpenAPI.BASE}/api/v1/pdfs/${pdfId}/download`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF: ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  static async deletePDF(pdfId: string) {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Temporarily set the token in OpenAPI config
+    const originalToken = OpenAPI.TOKEN;
+    OpenAPI.TOKEN = token;
+
+    try {
+      const response = await request(OpenAPI, {
+        method: "DELETE",
+        url: `/api/v1/pdfs/${pdfId}`,
+      });
+
+      return response;
+    } finally {
+      // Restore original token
+      OpenAPI.TOKEN = originalToken;
+    }
+  }
+}
+
 const PdfActionsMenu = ({ pdf, onDelete, disabled }: PdfActionsMenuProps) => {
   // Defensive check for pdf prop - ensure it's a valid object with required properties
   if (!pdf || typeof pdf !== 'object' || !pdf.id || typeof pdf.title !== 'string') {
@@ -55,24 +103,8 @@ const PdfActionsMenu = ({ pdf, onDelete, disabled }: PdfActionsMenuProps) => {
   const { showErrorToast, showSuccessToast } = useCustomToast()
 
   const handleViewPdf = async () => {
-    const token = localStorage.getItem("access_token")
-    if (!token) {
-      showErrorToast("Please log in to view PDFs")
-      return
-    }
-    
     try {
-      const response = await fetch(`http://api.localhost/api/v1/pdfs/${pdf.id}/download`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status}`)
-      }
-      
-      const blob = await response.blob()
+      const blob = await PDFService.downloadPDF(pdf.id);
       const url = window.URL.createObjectURL(blob)
       window.open(url, '_blank')
     } catch (error) {
@@ -96,24 +128,10 @@ const PdfActionsMenu = ({ pdf, onDelete, disabled }: PdfActionsMenuProps) => {
     setDeleteStep("Starting deletion...")
 
     try {
-      const token = localStorage.getItem("access_token")
-      if (!token) {
-        throw new Error("No access token found")
-      }
-
       setDeleteProgress(20)
       setDeleteStep("Deleting PDF file and database record...")
 
-      const response = await fetch(`http://api.localhost/api/v1/pdfs/${pdf.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete PDF: ${response.status}`)
-      }
+      await PDFService.deletePDF(pdf.id);
 
       setDeleteProgress(100)
       setDeleteStep("Deletion completed successfully!")
