@@ -2,12 +2,6 @@
 
 This guide provides step-by-step instructions for deploying the SoulScript application to AWS EC2 using Docker Compose.
 
-## Prerequisites
-
-- AWS Account with EC2 access
-- SSH key pair for EC2 access
-- Basic knowledge of AWS Console and Linux commands
-
 ## Architecture
 
 The application consists of:
