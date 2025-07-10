@@ -11,4 +11,8 @@ export default defineConfig({
     },
   },
   plugins: [react(), TanStackRouterVite()],
+  server: {
+    port: 80,
+    host: true, // Allow external connections
+  },
 })

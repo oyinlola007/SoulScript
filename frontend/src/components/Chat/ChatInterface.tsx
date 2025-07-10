@@ -198,7 +198,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const fetchSessions = async () => {
     try {
       const data = await ChatService.getSessions();
-      setSessions(data.data);
+        setSessions(data.data);
     } catch (error) {
       showErrorToast('Failed to load chat sessions');
     }
@@ -208,7 +208,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const fetchMessages = async (sessionId: string) => {
     try {
       const data = await ChatService.getMessages(sessionId);
-      setMessages(data.data);
+        setMessages(data.data);
     } catch (error) {
       showErrorToast('Failed to load messages');
     }
@@ -218,12 +218,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const createNewSession = async () => {
     try {
       const newSession = await ChatService.createSession('New Chat');
-      setSessions(prev => [newSession, ...prev]);
-      setCurrentSession(newSession);
-      setMessages([]);
-      setIsLoading(false);
-      setIsBlocked(false);
-      setBlockedReason('');
+        setSessions(prev => [newSession, ...prev]);
+        setCurrentSession(newSession);
+        setMessages([]);
+        setIsLoading(false);
+        setIsBlocked(false);
+        setBlockedReason('');
     } catch (error) {
       showErrorToast('Failed to create new session');
     }
@@ -309,14 +309,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
       // Fetch the latest session data to check for blocked status
       try {
         const updatedSession = await ChatService.getSession(currentSession.id);
-        setCurrentSession(updatedSession);
-        setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
-        if (updatedSession.is_blocked) {
-          setIsBlocked(true);
-          setBlockedReason(updatedSession.blocked_reason || 'Content violation');
-        } else {
-          setIsBlocked(false);
-          setBlockedReason('');
+            setCurrentSession(updatedSession);
+            setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
+            if (updatedSession.is_blocked) {
+              setIsBlocked(true);
+              setBlockedReason(updatedSession.blocked_reason || 'Content violation');
+            } else {
+              setIsBlocked(false);
+              setBlockedReason('');
         }
       } catch (e) {
         // Ignore session fetch errors
@@ -354,17 +354,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const deleteSession = async (sessionId: string) => {
     try {
       await ChatService.deleteSession(sessionId);
-      setSessions(prev => prev.filter(s => s.id !== sessionId));
-      if (currentSession?.id === sessionId) {
-        setCurrentSession(null);
-        setMessages([]);
-      }
-      showSuccessToast('Session deleted successfully');
+        setSessions(prev => prev.filter(s => s.id !== sessionId));
+        if (currentSession?.id === sessionId) {
+          setCurrentSession(null);
+          setMessages([]);
+        }
+        showSuccessToast('Session deleted successfully');
     } catch (error) {
       if (error instanceof Error && error.message.includes('Cannot delete a blocked session')) {
-        showErrorToast(BLOCKED_SESSION_DELETE_ERROR);
-      } else {
-        showErrorToast('Failed to delete session');
+          showErrorToast(BLOCKED_SESSION_DELETE_ERROR);
+        } else {
+          showErrorToast('Failed to delete session');
       }
     }
   };
@@ -373,11 +373,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   const updateSessionTitle = async (sessionId: string, title: string) => {
     try {
       const updatedSession = await ChatService.updateSessionTitle(sessionId, title);
-      setSessions(prev => 
-        prev.map(s => s.id === sessionId ? updatedSession : s)
-      );
-      if (currentSession?.id === sessionId) {
-        setCurrentSession(updatedSession);
+        setSessions(prev => 
+          prev.map(s => s.id === sessionId ? updatedSession : s)
+        );
+        if (currentSession?.id === sessionId) {
+          setCurrentSession(updatedSession);
       }
     } catch (error) {
       showErrorToast('Failed to update session title');
