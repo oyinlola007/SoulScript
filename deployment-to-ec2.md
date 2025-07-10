@@ -47,7 +47,6 @@ After your instance is running, you need to configure the security group inbound
 | Type | Protocol | Port Range | Source | Description |
 |------|----------|------------|--------|-------------|
 | Custom TCP | TCP | 8000 | 0.0.0.0/0 |  |
-| Custom TCP | TCP | 5173 | 0.0.0.0/0 |  |
 | Custom TCP | TCP | 8080 | 0.0.0.0/0 |  |
 
 5. **Click "Save rules"**
@@ -138,9 +137,9 @@ Replace the following values with your EC2 instance details:
 | Variable | Change From | Change To |
 |----------|-------------|-----------|
 | `DOMAIN` | `localhost` | `your-ec2-public-ip` |
-| `FRONTEND_HOST` | `http://localhost:5173` | `http://your-ec2-public-ip:5173` |
+| `FRONTEND_HOST` | `http://localhost:80` | `http://your-ec2-public-ip:80` |
 | `ENVIRONMENT` | `local` | `production` |
-| `BACKEND_CORS_ORIGINS` | `"http://localhost:5173"` | `"http://your-ec2-public-ip:5173"` |
+| `BACKEND_CORS_ORIGINS` | `"http://localhost:80"` | `"http://your-ec2-public-ip:80"` |
 
 **Security Changes (Recommended):**
 | Variable | Change From | Change To |
@@ -174,7 +173,7 @@ docker-compose ps
 ## Step 4: Access Application
 
 ### 4.1 Frontend Access
-- **URL**: `http://your-ec2-public-ip:5173`
+- **URL**: `http://your-ec2-public-ip:80`
 - **Default Admin**: `admin@soulscript.com` / `adminPassword`
 
 ### 4.2 Backend API

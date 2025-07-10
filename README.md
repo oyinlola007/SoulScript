@@ -184,7 +184,7 @@ cp example.env .env
 docker compose watch
 
 # Access the application:
-# Frontend: http://localhost:5173
+# Frontend: http://localhost:80
 # Backend API: http://localhost:8000
 # Swagger UI (API docs): http://localhost:8000/docs
 # ReDoc (alternative API docs): http://localhost:8000/redoc
@@ -284,7 +284,7 @@ The `.env` file contains all configurations, generated keys, and passwords. **Ne
 
 **Deployment configuration:**
 - `DOMAIN`: Domain for the application (default: `localhost`)
-- `FRONTEND_HOST`: Frontend URL (default: `http://localhost:5173`)
+- `FRONTEND_HOST`: Frontend URL (default: `http://localhost:80`)
 - `ENVIRONMENT`: Environment type (`local`, `staging`, `production`)
 
 ### Environment Variable Security
