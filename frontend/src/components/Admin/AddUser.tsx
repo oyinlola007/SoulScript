@@ -19,7 +19,6 @@ import { FaPlus } from "react-icons/fa"
 import { Checkbox } from "../ui/checkbox"
 import {
   DialogBody,
-  DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -221,7 +220,6 @@ const AddUser = () => {
             </Button>
           </DialogFooter>
         </form>
-        <DialogCloseTrigger />
       </DialogContent>
     </DialogRoot>
   )

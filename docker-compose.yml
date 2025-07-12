@@ -81,6 +81,9 @@ services:
     networks:
       - traefik-public
       - default
+    volumes:
+      - app-pdf-storage:/app/pdf_storage
+      - app-chroma-data:/app/chroma_db
     depends_on:
       db:
         condition: service_healthy
@@ -109,7 +112,7 @@ services:
       - SENTRY_DSN=${SENTRY_DSN}
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/utils/health-check/"]
+      test: ["CMD", "curl", "-f", "http://${DOMAIN?Variable not set}:8000/api/v1/utils/health-check/"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -164,6 +167,8 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
 volumes:
   app-db-data:
+  app-pdf-storage:
+  app-chroma-data:
 
 networks:
   traefik-public:

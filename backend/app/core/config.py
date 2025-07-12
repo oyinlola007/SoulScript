@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
-    FRONTEND_HOST: str = "http://localhost:5173"
+    FRONTEND_HOST: str = "http://localhost:80"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
 
     BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_cors)] = (
@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+
+    # OpenAI Configuration
+    OPENAI_API_KEY: str | None = None
+
+    # Chat Configuration
+    CHAT_CONTEXT_WINDOW_SIZE: int = 3  # Number of messages to keep in context
+    CHAT_MEMORY_K: int = 3  # LangChain memory parameter
+    CHAT_SUMMARY_THRESHOLD: int = 5  # When to start summarizing
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
