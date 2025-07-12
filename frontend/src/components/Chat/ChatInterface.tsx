@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Flex, VStack, HStack, Text, Button, Input, useToast } from '@chakra-ui/react';
+import { Box, Flex, VStack, HStack, Text, Button, Input, useToast, IconButton, useBreakpointValue } from '@chakra-ui/react';
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { useColorModeValue } from '../ui/color-mode';
 import { ChatSession, ChatMessage } from '../../types/chat';
 import ChatSessionList from './ChatSessionList';
@@ -11,7 +12,11 @@ import { BLOCKED_CONTENT_MESSAGE, BLOCKED_SESSION_DELETE_ERROR, CHAT_SELECT_MESS
 import { OpenAPI } from '@/client/core/OpenAPI';
 import { request } from '@/client/core/request';
 
-interface ChatInterfaceProps {}
+interface ChatInterfaceProps {
+  showSessions?: boolean;
+  setShowSessions?: (show: boolean) => void;
+  isMobile?: boolean;
+}
 
 // Chat Service
 class ChatService {
@@ -184,15 +189,29 @@ class ChatService {
   }
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = () => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
+  showSessions: externalShowSessions, 
+  setShowSessions: externalSetShowSessions, 
+  isMobile: externalIsMobile 
+}) => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockedReason, setBlockedReason] = useState('');
+  const [internalShowSessions, setInternalShowSessions] = useState(false);
   const { user } = useAuth();
   const { showErrorToast, showSuccessToast } = useCustomToast();
+
+  // Use external props if provided, otherwise use internal state
+  const isMobile = externalIsMobile ?? useBreakpointValue({ base: true, md: false });
+  const showSessions = externalShowSessions ?? internalShowSessions;
+  const setShowSessions = externalSetShowSessions ?? setInternalShowSessions;
+  
+  // Responsive breakpoints
+  const sidebarWidth = useBreakpointValue({ base: '80%', md: '30%' });
+  const mainWidth = useBreakpointValue({ base: '100%', md: '70%' });
 
   // Fetch user's chat sessions
   const fetchSessions = async () => {
@@ -390,21 +409,84 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
   }, []);
 
   return (
-    <Flex h="calc(100vh - 100px)" bg={useColorModeValue('gray.50', 'gray.900')}>
-      {/* Left Sidebar - 30% width */}
-      <Box w="30%" bg={useColorModeValue('white', 'gray.800')} borderRight="1px" borderColor={useColorModeValue('gray.200', 'gray.700')}>
-        <ChatSessionList
-          sessions={sessions}
-          currentSession={currentSession}
-          onSelectSession={selectSession}
-          onCreateSession={createNewSession}
-          onDeleteSession={deleteSession}
-          onUpdateTitle={updateSessionTitle}
-        />
-      </Box>
+    <Flex h="100%" bg={useColorModeValue('gray.50', 'gray.900')} position="relative">
+      {/* Left Sidebar - Responsive width (only for desktop) */}
+      {!isMobile && (
+        <Box 
+          w={sidebarWidth}
+          bg={useColorModeValue('white', 'gray.800')} 
+          borderRight="1px" 
+          borderColor={useColorModeValue('gray.200', 'gray.700')}
+          h="full"
+        >
+          <ChatSessionList
+            sessions={sessions}
+            currentSession={currentSession}
+            onSelectSession={selectSession}
+            onCreateSession={createNewSession}
+            onDeleteSession={deleteSession}
+            onUpdateTitle={updateSessionTitle}
+          />
+        </Box>
+      )}
 
-      {/* Main Chat Area - 70% width */}
-      <Box w="70%" p={1}>
+      {/* Right Sidebar - Mobile sessions panel */}
+      {isMobile && (
+        <Box 
+          w={showSessions ? sidebarWidth : '0%'}
+          bg={useColorModeValue('white', 'gray.800')} 
+          borderLeft="1px" 
+          borderColor={useColorModeValue('gray.200', 'gray.700')}
+          transition="width 0.3s ease"
+          overflow="visible"
+          position="fixed"
+          top={0}
+          right={0}
+          h="100vh"
+          zIndex={999}
+        >
+          {/* Pull-in arrow on the left edge of the panel */}
+          {showSessions && (
+            <IconButton
+              aria-label="Close chat sessions"
+              onClick={() => setShowSessions(false)}
+              position="absolute"
+              top={4}
+              left="-20px"
+              size="md"
+              variant="ghost"
+              color="inherit"
+              zIndex={10}
+              fontSize="lg"
+              bg="rgba(255, 255, 255, 0.9)"
+              boxShadow="lg"
+              borderRadius="full"
+              _hover={{ bg: "rgba(255, 255, 255, 1)" }}
+            >
+              <FaChevronRight />
+            </IconButton>
+          )}
+          
+          <ChatSessionList
+            sessions={sessions}
+            currentSession={currentSession}
+            onSelectSession={(session) => {
+              selectSession(session);
+              // Close sessions panel on mobile after selection
+              setShowSessions(false);
+            }}
+            onCreateSession={createNewSession}
+            onDeleteSession={deleteSession}
+            onUpdateTitle={updateSessionTitle}
+          />
+        </Box>
+      )}
+
+      {/* Main Chat Area - Responsive width */}
+      <Box 
+        w={isMobile ? '100%' : mainWidth} 
+        p={1}
+      >
         <Box 
           h="full" 
           bg={useColorModeValue('white', 'gray.800')} 
@@ -436,8 +518,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
             </VStack>
           ) : (
             <Flex h="full" align="center" justify="center">
-              <VStack spacing={4}>
-                <Text fontSize="xl" color={useColorModeValue('gray.500', 'gray.400')}>
+              <VStack spacing={4} align="center" textAlign="center">
+                <Text fontSize="xl" color={useColorModeValue('gray.500', 'gray.400')} textAlign="center">
                   {CHAT_SELECT_MESSAGE}
                 </Text>
                 <Button colorScheme="blue" onClick={createNewSession}>
@@ -448,6 +530,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = () => {
           )}
         </Box>
       </Box>
+
+      {/* Mobile overlay to close sessions panel when clicking outside */}
+      {isMobile && showSessions && (
+        <Box
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg="blackAlpha.300"
+          zIndex={998}
+          onClick={() => setShowSessions(false)}
+        />
+      )}
     </Flex>
   );
 };
