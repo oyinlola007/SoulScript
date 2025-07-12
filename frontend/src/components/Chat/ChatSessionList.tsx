@@ -95,7 +95,7 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
     <Box h="full" bg="transparent">
       {/* Header */}
       <HStack justify="space-between" p={4} borderBottom="1px" borderColor="gray.200">
-        <Text fontSize="lg" fontWeight="semibold">
+        <Text fontSize="lg" fontWeight="semibold" ml={{ base: 4, md: 0 }}>
           Chat Sessions
         </Text>
         <Icon as={FiPlus} alignSelf="center" fontSize="lg" cursor="pointer" onClick={onCreateSession} />
