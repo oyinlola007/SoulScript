@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlmodel import col, delete, func, select
 
 from app import crud
@@ -140,9 +140,13 @@ def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
 
 
 @router.post("/signup", response_model=UserPublic)
-def register_user(session: SessionDep, user_in: UserRegister) -> Any:
+def register_user(
+    session: SessionDep,
+    user_in: UserRegister,
+    anon_session_id: str = Body(default=None),
+) -> Any:
     """
-    Create new user without the need to be logged in.
+    Create new user without the need to be logged in. If anon_session_id is provided, attribute any matching ChatSession to the new user.
     """
     user = crud.get_user_by_email(session=session, email=user_in.email)
     if user:
@@ -152,6 +156,23 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
         )
     user_create = UserCreate.model_validate(user_in)
     user = crud.create_user(session=session, user_create=user_create)
+
+    # Attribute anonymous chat session to new user if anon_session_id is provided
+    if anon_session_id:
+        from app.models import ChatSession
+        from sqlmodel import select
+
+        statement = select(ChatSession).where(
+            ChatSession.anon_session_id == anon_session_id
+        )
+        chat_session = session.exec(statement).first()
+        if chat_session:
+            chat_session.owner_id = user.id
+            chat_session.anon_session_id = None  # Optionally clear anon_session_id
+            session.add(chat_session)
+            session.commit()
+            session.refresh(chat_session)
+
     return user
 
 

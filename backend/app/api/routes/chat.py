@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from sqlmodel import func, select, Session
 from fastapi.responses import StreamingResponse
 
@@ -207,9 +207,14 @@ def send_chat_message(
             raise HTTPException(status_code=404, detail="Chat session not found")
 
         # Send message and get response
-        result = chat_service.send_message(
-            session, session_id, current_user.id, message_in.content
-        )
+        try:
+            result = chat_service.send_message(
+                session, session_id, current_user.id, message_in.content
+            )
+        except ValueError as e:
+            if "not found" in str(e).lower():
+                raise HTTPException(status_code=404, detail="Chat session not found")
+            raise
 
         # Convert SQLModel objects to proper response format
         user_message_public = ChatMessagePublic(
@@ -233,6 +238,7 @@ def send_chat_message(
             title=result["session"].title,
             is_active=result["session"].is_active,
             owner_id=result["session"].owner_id,
+            anon_session_id=result["session"].anon_session_id,
             created_at=result["session"].created_at,
             updated_at=result["session"].updated_at,
             is_blocked=result["session"].is_blocked,
@@ -244,10 +250,12 @@ def send_chat_message(
             "ai_message": ai_message_public,
             "session": session_public,
         }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error sending chat message: {str(e)}"
+        )
 
 
 @router.get("/sessions/{session_id}/summary")
@@ -339,5 +347,135 @@ async def stream_chat_message(
     # Stream the AI response
     generator = chat_service.stream_message(
         session, session_id, current_user.id, message_in.content
+    )
+    return StreamingResponse(generator, media_type="text/event-stream")
+
+
+@router.post("/anon/session", response_model=ChatSessionPublic)
+def create_anon_chat_session(
+    *,
+    session: SessionDep,
+    anon_session_id: str = Body(...),
+    title: str = Body(default="New Chat"),
+) -> Any:
+    """
+    Create a new anonymous chat session using anon_session_id.
+    """
+    # Check if a session already exists for this anon_session_id
+    statement = select(ChatSession).where(
+        ChatSession.anon_session_id == anon_session_id
+    )
+    chat_session = session.exec(statement).first()
+    if chat_session:
+        return chat_session
+    # Create new session
+    chat_session = chat_service.create_session(
+        session, anon_session_id=anon_session_id, title=title
+    )
+    return chat_session
+
+
+@router.get("/anon/session", response_model=ChatSessionPublic)
+def get_anon_chat_session(session: SessionDep, anon_session_id: str) -> Any:
+    """
+    Get the anonymous chat session for the given anon_session_id.
+    """
+    sessions = chat_service.get_user_sessions(session, anon_session_id=anon_session_id)
+    if not sessions:
+        raise HTTPException(status_code=404, detail="Anonymous chat session not found")
+    return sessions[0]
+
+
+@router.get("/anon/session/messages", response_model=ChatMessagesPublic)
+def get_anon_chat_messages(
+    session: SessionDep, anon_session_id: str, skip: int = 0, limit: int = 20
+) -> Any:
+    """
+    Get messages for the anonymous chat session.
+    """
+    sessions = chat_service.get_user_sessions(session, anon_session_id=anon_session_id)
+    if not sessions:
+        raise HTTPException(status_code=404, detail="Anonymous chat session not found")
+    chat_session = sessions[0]
+    messages = chat_service.get_session_messages(
+        session, chat_session.id, skip=skip, limit=limit
+    )
+    count_statement = (
+        select(func.count())
+        .select_from(ChatMessage)
+        .where(ChatMessage.session_id == chat_session.id)
+    )
+    count = session.exec(count_statement).one()
+    return ChatMessagesPublic(data=messages, count=count)
+
+
+@router.post("/anon/session/message", response_model=ChatMessagePublic)
+def send_anon_chat_message(
+    *, session: SessionDep, anon_session_id: str = Body(...), content: str = Body(...)
+) -> Any:
+    """
+    Send a message in the anonymous chat session and get AI response.
+    """
+    sessions = chat_service.get_user_sessions(session, anon_session_id=anon_session_id)
+    if not sessions:
+        raise HTTPException(status_code=404, detail="Anonymous chat session not found")
+    chat_session = sessions[0]
+    result = chat_service.send_message(
+        session, chat_session.id, anon_session_id=anon_session_id, content=content
+    )
+    return result["user_message"]
+
+
+@router.put("/anon/session/{session_id}", response_model=ChatSessionPublic)
+def update_anon_chat_session(
+    *,
+    session: SessionDep,
+    session_id: uuid.UUID,
+    session_in: ChatSessionUpdate,
+) -> Any:
+    """
+    Update anonymous chat session title (no authentication required).
+    """
+    try:
+        if not session_in.title:
+            raise HTTPException(status_code=400, detail="Title is required")
+        # Only allow update if session is anonymous
+        chat_session = session.get(ChatSession, session_id)
+        if not chat_session or chat_session.owner_id is not None:
+            raise HTTPException(
+                status_code=404, detail="Anonymous chat session not found"
+            )
+        chat_session.title = session_in.title
+        session.add(chat_session)
+        session.commit()
+        session.refresh(chat_session)
+        return chat_session
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error updating anonymous chat session: {str(e)}"
+        )
+
+
+@router.post("/anon/session/{session_id}/stream")
+async def stream_anon_chat_message(
+    *,
+    session: SessionDep,
+    session_id: uuid.UUID,
+    message_in: ChatMessageCreate,
+):
+    """
+    Stream AI response for an anonymous chat session (no authentication required).
+    """
+    # Verify session is anonymous
+    chat_session = session.get(ChatSession, session_id)
+    if not chat_session or chat_session.owner_id is not None:
+
+        def error_gen():
+            yield "Session not found or not anonymous."
+
+        return StreamingResponse(error_gen(), media_type="text/event-stream")
+    # Stream the AI response
+    generator = chat_service.stream_message(
+        session, session_id, None, message_in.content
     )
     return StreamingResponse(generator, media_type="text/event-stream")

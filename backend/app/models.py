@@ -183,8 +183,11 @@ class ChatSessionUpdate(SQLModel):
 
 class ChatSession(ChatSessionBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    owner_id: uuid.UUID = Field(
-        foreign_key="user.id", nullable=False, ondelete="CASCADE"
+    owner_id: uuid.UUID | None = Field(
+        foreign_key="user.id", nullable=True, ondelete="CASCADE"
+    )
+    anon_session_id: str | None = Field(
+        default=None, unique=True, index=True, max_length=64
     )
     owner: User | None = Relationship(back_populates="chat_sessions")
     messages: list["ChatMessage"] = Relationship(
@@ -205,7 +208,8 @@ class ChatSession(ChatSessionBase, table=True):
 
 class ChatSessionPublic(ChatSessionBase):
     id: uuid.UUID
-    owner_id: uuid.UUID
+    owner_id: uuid.UUID | None = None
+    anon_session_id: str | None = None
     created_at: datetime
     updated_at: datetime
     is_blocked: bool = Field(default=False)

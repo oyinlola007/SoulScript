@@ -286,7 +286,10 @@ def test_register_user(client: TestClient, db: Session) -> None:
     username = random_email()
     password = random_lower_string()
     full_name = random_lower_string()
-    data = {"email": username, "password": password, "full_name": full_name}
+    data = {
+        "user_in": {"email": username, "password": password, "full_name": full_name},
+        "anon_session_id": None,
+    }
     r = client.post(
         f"{settings.API_V1_STR}/users/signup",
         json=data,
@@ -308,9 +311,12 @@ def test_register_user_already_exists_error(client: TestClient) -> None:
     password = random_lower_string()
     full_name = random_lower_string()
     data = {
-        "email": settings.FIRST_SUPERUSER,
-        "password": password,
-        "full_name": full_name,
+        "user_in": {
+            "email": settings.FIRST_SUPERUSER,
+            "password": password,
+            "full_name": full_name,
+        },
+        "anon_session_id": None,
     }
     r = client.post(
         f"{settings.API_V1_STR}/users/signup",

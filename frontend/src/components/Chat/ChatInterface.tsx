@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Flex, VStack, HStack, Text, Button, Input, useToast, IconButton, useBreakpointValue } from '@chakra-ui/react';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { Box, Flex, Text, Button, IconButton, useBreakpointValue } from '@chakra-ui/react';
+import { FaChevronRight } from 'react-icons/fa';
 import { useColorModeValue } from '../ui/color-mode';
 import { ChatSession, ChatMessage } from '../../types/chat';
 import ChatSessionList from './ChatSessionList';
 import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
-import useAuth from '../../hooks/useAuth';
 import useCustomToast from '../../hooks/useCustomToast';
-import { BLOCKED_CONTENT_MESSAGE, BLOCKED_SESSION_DELETE_ERROR, CHAT_SELECT_MESSAGE, START_NEW_CHAT_BUTTON } from '../../constants/prompts';
+import { CHAT_SELECT_MESSAGE, START_NEW_CHAT_BUTTON } from '../../constants/prompts';
 import { OpenAPI } from '@/client/core/OpenAPI';
 import { request } from '@/client/core/request';
 
@@ -199,9 +198,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
-  const [blockedReason, setBlockedReason] = useState('');
   const [internalShowSessions, setInternalShowSessions] = useState(false);
-  const { user } = useAuth();
   const { showErrorToast, showSuccessToast } = useCustomToast();
 
   // Use external props if provided, otherwise use internal state
@@ -242,7 +239,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setMessages([]);
         setIsLoading(false);
         setIsBlocked(false);
-        setBlockedReason('');
+        // Removed: setBlockedReason('');
     } catch (error) {
       showErrorToast('Failed to create new session');
     }
@@ -332,10 +329,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             setSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
             if (updatedSession.is_blocked) {
               setIsBlocked(true);
-              setBlockedReason(updatedSession.blocked_reason || 'Content violation');
+              // Removed: setBlockedReason(updatedSession.blocked_reason || 'Content violation');
             } else {
               setIsBlocked(false);
-              setBlockedReason('');
+              // Removed: setBlockedReason('');
         }
       } catch (e) {
         // Ignore session fetch errors
@@ -360,10 +357,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     // Check if session is blocked
     if (session.is_blocked) {
       setIsBlocked(true);
-      setBlockedReason(session.blocked_reason || 'Content violation');
+      // Removed: setBlockedReason(session.blocked_reason || 'Content violation');
     } else {
       setIsBlocked(false);
-      setBlockedReason('');
+      // Removed: setBlockedReason('');
     }
     
     fetchMessages(session.id);
@@ -381,7 +378,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         showSuccessToast('Session deleted successfully');
     } catch (error) {
       if (error instanceof Error && error.message.includes('Cannot delete a blocked session')) {
-          showErrorToast(BLOCKED_SESSION_DELETE_ERROR);
+          showErrorToast('Failed to delete session');
         } else {
           showErrorToast('Failed to delete session');
       }
@@ -466,13 +463,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <FaChevronRight />
             </IconButton>
           )}
-          
           <ChatSessionList
             sessions={sessions}
             currentSession={currentSession}
             onSelectSession={(session) => {
               selectSession(session);
-              // Close sessions panel on mobile after selection
               setShowSessions(false);
             }}
             onCreateSession={createNewSession}
@@ -486,17 +481,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <Box 
         w={isMobile ? '100%' : mainWidth} 
         p={1}
+        h="full"
       >
-        <Box 
-          h="full" 
-          bg={useColorModeValue('white', 'gray.800')} 
-          border="0.5px" 
-          borderColor={useColorModeValue('gray.200', 'gray.700')} 
-          borderRadius="lg"
-          overflow="hidden"
-        >
+        <Flex direction="column" h="full">
           {currentSession ? (
-            <VStack h="full" spacing={0}>
+            <>
               {/* Blocked Status Banner */}
               {isBlocked && (
                 <Box w="full" bg={useColorModeValue('red.50', 'red.900')} borderBottom="1px" borderColor={useColorModeValue('red.200', 'red.700')} p={3}>
@@ -505,30 +494,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   </Text>
                 </Box>
               )}
-              
               {/* Messages Area */}
-              <Box flex={1} w="full" overflowY="auto">
+              <Box flex={1} w="full" overflowY="auto" minH={0}>
                 <ChatMessages messages={messages} isLoading={isLoading} />
               </Box>
-
               {/* Input Area */}
               <Box w="full" p={4} borderTop="1px" borderColor={useColorModeValue('gray.200', 'gray.700')}>
                 <ChatInput onSendMessage={sendMessage} isLoading={isLoading} isBlocked={isBlocked} />
               </Box>
-            </VStack>
+            </>
           ) : (
             <Flex h="full" align="center" justify="center">
-              <VStack spacing={4} align="center" textAlign="center">
+              <Box textAlign="center">
                 <Text fontSize="xl" color={useColorModeValue('gray.500', 'gray.400')} textAlign="center">
                   {CHAT_SELECT_MESSAGE}
                 </Text>
-                <Button colorScheme="blue" onClick={createNewSession}>
+                <Button colorScheme="blue" onClick={createNewSession} mt={4}>
                   {START_NEW_CHAT_BUTTON}
                 </Button>
-              </VStack>
+              </Box>
             </Flex>
           )}
-        </Box>
+        </Flex>
       </Box>
 
       {/* Mobile overlay to close sessions panel when clicking outside */}

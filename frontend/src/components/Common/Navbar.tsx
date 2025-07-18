@@ -3,9 +3,12 @@ import { Link } from "@tanstack/react-router"
 
 import Logo from "/assets/images/fastapi-logo.svg"
 import UserMenu from "./UserMenu"
+import useAuth from "@/hooks/useAuth"
+import { LinkButton } from "@/components/ui/link-button"
 
 function Navbar() {
   const display = useBreakpointValue({ base: "none", md: "flex" })
+  const { user } = useAuth()
 
   return (
     <Flex
@@ -23,7 +26,13 @@ function Navbar() {
         <Image src={Logo} alt="Logo" maxW="3xs" p={2} />
       </Link>
       <Flex gap={2} alignItems="center">
-        <UserMenu />
+        {user ? (
+          <UserMenu />
+        ) : (
+          <LinkButton href="/signup" colorScheme="blue" variant="solid" size="lg">
+            Sign Up
+          </LinkButton>
+        )}
       </Flex>
     </Flex>
   )

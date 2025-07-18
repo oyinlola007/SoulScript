@@ -1,5 +1,5 @@
 import React, { useState, KeyboardEvent } from 'react';
-import { HStack, Input, IconButton, Spinner } from '@chakra-ui/react';
+import { Flex, Input, IconButton, Spinner } from '@chakra-ui/react';
 import { useColorModeValue } from '../ui/color-mode';
 import { FiSend } from 'react-icons/fi';
 
@@ -13,6 +13,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isBlock
   const [message, setMessage] = useState('');
 
   const handleSend = () => {
+    console.log("ChatInput handleSend called", { message, isLoading, isBlocked });
     if (message.trim() && !isLoading && !isBlocked) {
       onSendMessage(message.trim());
       setMessage('');
@@ -27,7 +28,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isBlock
   };
 
   return (
-    <HStack spacing={3}>
+    <Flex direction="row" align="center">
       <Input
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -41,6 +42,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isBlock
           borderColor: useColorModeValue('blue.500', 'blue.300'),
           boxShadow: `0 0 0 1px ${useColorModeValue('var(--chakra-colors-blue-500)', 'var(--chakra-colors-blue-300)')}`,
         }}
+        mr={2}
       />
       <IconButton
         aria-label="Send message"
@@ -52,7 +54,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, isBlock
       >
         {isLoading ? <Spinner size="sm" /> : <FiSend fontSize="18" />}
       </IconButton>
-    </HStack>
+    </Flex>
   );
 };
 

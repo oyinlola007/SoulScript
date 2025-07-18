@@ -386,28 +386,52 @@ class ChatService:
             return ""
 
     def create_session(
-        self, db: Session, user_id: uuid.UUID, title: str = "New Chat"
+        self,
+        db: Session,
+        user_id: uuid.UUID = None,
+        title: str = "New Chat",
+        anon_session_id: str = None,
     ) -> ChatSession:
-        """Create a new chat session"""
-        session = ChatSession(owner_id=user_id, title=title)
-        db.add(session)
+        """Create a new chat session for a user or anonymous session"""
+        if user_id:
+            session_obj = ChatSession(owner_id=user_id, title=title)
+        elif anon_session_id:
+            session_obj = ChatSession(anon_session_id=anon_session_id, title=title)
+        else:
+            raise ValueError("Either user_id or anon_session_id must be provided")
+        db.add(session_obj)
         db.commit()
-        db.refresh(session)
-        logger.info(f"Created new chat session: {session.id}")
-        return session
+        db.refresh(session_obj)
+        logger.info(f"Created new chat session: {session_obj.id}")
+        return session_obj
 
     def get_user_sessions(
-        self, db: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 20
+        self,
+        db: Session,
+        user_id: uuid.UUID = None,
+        anon_session_id: str = None,
+        skip: int = 0,
+        limit: int = 20,
     ) -> List[ChatSession]:
-        """Get all chat sessions for a user"""
-        statement = (
-            select(ChatSession)
-            .where(ChatSession.owner_id == user_id)
-            .order_by(ChatSession.updated_at.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-
+        """Get all chat sessions for a user or anonymous session"""
+        if user_id:
+            statement = (
+                select(ChatSession)
+                .where(ChatSession.owner_id == user_id)
+                .order_by(ChatSession.updated_at.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+        elif anon_session_id:
+            statement = (
+                select(ChatSession)
+                .where(ChatSession.anon_session_id == anon_session_id)
+                .order_by(ChatSession.updated_at.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+        else:
+            raise ValueError("Either user_id or anon_session_id must be provided")
         sessions = db.exec(statement).all()
         return sessions
 
@@ -427,37 +451,50 @@ class ChatService:
         return messages
 
     def send_message(
-        self, db: Session, session_id: uuid.UUID, user_id: uuid.UUID, content: str
+        self,
+        db: Session,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID = None,
+        content: str = None,
+        anon_session_id: str = None,
     ) -> Dict[str, Any]:
-        """Send a message and get AI response"""
+        """Send a message and get AI response for user or anonymous session"""
         try:
             logger.info(
-                f"=== START: Processing message for session {session_id}, user {user_id} ==="
+                f"=== START: Processing message for session {session_id}, user {user_id}, anon {anon_session_id} ==="
             )
             logger.info(
                 f"User message: '{content[:100]}{'...' if len(content) > 100 else ''}'"
             )
 
             # Get the session
-            session_statement = select(ChatSession).where(
-                ChatSession.id == session_id, ChatSession.owner_id == user_id
-            )
-            session = db.exec(session_statement).first()
+            if user_id:
+                session_statement = select(ChatSession).where(
+                    ChatSession.id == session_id, ChatSession.owner_id == user_id
+                )
+            elif anon_session_id:
+                session_statement = select(ChatSession).where(
+                    ChatSession.id == session_id,
+                    ChatSession.anon_session_id == anon_session_id,
+                )
+            else:
+                raise ValueError("Either user_id or anon_session_id must be provided")
+            session_obj = db.exec(session_statement).first()
 
-            if not session:
+            if not session_obj:
                 logger.error(
-                    f"Session {session_id} not found or access denied for user {user_id}"
+                    f"Session {session_id} not found or access denied for user {user_id} or anon {anon_session_id}"
                 )
                 raise ValueError("Session not found or access denied")
 
             logger.info(
-                f"Found session: '{session.title}' (created: {session.created_at})"
+                f"Found session: '{session_obj.title}' (created: {session_obj.created_at})"
             )
 
             # Check if session is blocked
-            if session.is_blocked:
+            if session_obj.is_blocked:
                 logger.warning(
-                    f"Chat session {session_id} is blocked due to: {session.blocked_reason}"
+                    f"Chat session {session_id} is blocked due to: {session_obj.blocked_reason}"
                 )
                 raise ValueError("Chat session is blocked due to inappropriate content")
 
@@ -519,56 +556,6 @@ class ChatService:
                 f"Current chat history has {len(chat_history.messages)} messages"
             )
 
-            # Log the last few messages for context
-            if chat_history.messages:
-                logger.info("Recent conversation context:")
-                for i, msg in enumerate(chat_history.messages[-4:]):  # Last 4 messages
-                    role = (
-                        "User"
-                        if hasattr(msg, "content")
-                        and hasattr(msg, "type")
-                        and msg.type == "human"
-                        else "AI"
-                    )
-                    content_preview = (
-                        msg.content[:50] + "..."
-                        if len(msg.content) > 50
-                        else msg.content
-                    )
-                    logger.info(f"  {role}: '{content_preview}'")
-
-            # Get PDF context for the query
-            logger.info("=== STEP 1: Retrieving PDF context ===")
-            pdf_context = self._get_pdf_context(user_id, content)
-
-            if pdf_context:
-                logger.info(
-                    f"PDF context retrieved successfully ({len(pdf_context)} characters)"
-                )
-            else:
-                logger.info(
-                    "No PDF context found - proceeding with general knowledge only"
-                )
-
-            # Get active feature flags for AI prompt
-            logger.info("=== STEP 1.5: Getting active feature flags ===")
-            active_flags_prompt = feature_flag_service.get_active_flags_prompt_text(db)
-
-            # Prepare query with context and feature flags
-            enhanced_query = content
-            if pdf_context:
-                enhanced_query = f"Context from your documents:\n{pdf_context}\n\nUser question: {content}\n\nPlease search the provided context and cite specific passages when answering."
-                logger.info(f"Enhanced query prepared with PDF context")
-            else:
-                logger.info("Using original query without PDF context")
-
-            # Add feature flags to the query if any are active
-            if active_flags_prompt:
-                enhanced_query = f"{active_flags_prompt}\n\n{enhanced_query}"
-                logger.info("Enhanced query with active feature flags")
-            else:
-                logger.info("No active feature flags found")
-
             # Add the user message to history
             from langchain_core.messages import HumanMessage
 
@@ -583,7 +570,7 @@ class ChatService:
 
             # Use the simple pipeline without message history
             response = self.chat_pipeline.invoke(
-                {"query": enhanced_query, "history": messages}
+                {"query": content, "history": messages}
             )
 
             # Extract response content
@@ -603,7 +590,6 @@ class ChatService:
                 session_id=session_id,
                 content_type="ai_response",
             )
-
             if not ai_filter_result["is_allowed"]:
                 # Log the violation
                 content_filter_service.log_violation(
@@ -614,15 +600,11 @@ class ChatService:
                     original_content=ai_content,
                     blocked_reason=ai_filter_result["blocked_reason"],
                 )
-
-                # Block the chat session
                 content_filter_service.block_chat_session(
                     db=db,
                     session_id=session_id,
                     blocked_reason=ai_filter_result["blocked_reason"],
                 )
-
-                # Replace AI content with blocked message and save to database
                 ai_content = AI_RESPONSE_BLOCKED_MESSAGE
                 logger.warning(
                     f"AI response blocked for user {user_id}: {ai_filter_result['blocked_reason']}"
@@ -641,13 +623,13 @@ class ChatService:
             db.add(ai_message)
 
             # Update session timestamp
-            session.updated_at = datetime.utcnow()
+            session_obj.updated_at = datetime.utcnow()
 
             # Auto-generate title if it's the first message
-            if session.title == "New Chat":
+            if session_obj.title == "New Chat":
                 # Generate a title based on the first message
                 title = content[:50] + "..." if len(content) > 50 else content
-                session.title = title
+                session_obj.title = title
                 logger.info(f"Auto-generated session title: '{title}'")
 
             db.commit()
@@ -658,7 +640,7 @@ class ChatService:
             return {
                 "user_message": user_message,
                 "ai_message": ai_message,
-                "session": session,
+                "session": session_obj,
             }
 
         except Exception as e:

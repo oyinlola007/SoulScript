@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import {
   Box,
-  VStack,
-  HStack,
   Text,
   Button,
   IconButton,
   Input,
   Icon,
+  Flex,
 } from '@chakra-ui/react';
 import { FiPlus, FiEdit, FiTrash2 } from 'react-icons/fi';
 import { BsThreeDotsVertical } from 'react-icons/bs';
@@ -94,15 +93,15 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
   return (
     <Box h="full" bg="transparent">
       {/* Header */}
-      <HStack justify="space-between" p={4} borderBottom="1px" borderColor="gray.200">
+      <Flex justify="space-between" p={4} borderBottom="1px" borderColor="gray.200">
         <Text fontSize="lg" fontWeight="semibold" ml={{ base: 4, md: 0 }}>
           Chat Sessions
         </Text>
         <Icon as={FiPlus} alignSelf="center" fontSize="lg" cursor="pointer" onClick={onCreateSession} />
-      </HStack>
+      </Flex>
 
       {/* Sessions List */}
-      <VStack spacing={0} align="stretch" overflowY="auto" maxH="calc(100vh - 200px)" px={4}>
+      <Box overflowY="auto" maxH="calc(100vh - 200px)" px={4}>
         {sessions.length === 0 ? (
           <Text color="gray.500" textAlign="center" py={8}>
             No chat sessions yet
@@ -122,10 +121,11 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                   : useColorModeValue('gray.50', 'blue.900')
               }}
               onClick={() => onSelectSession(session)}
+              mb={2}
             >
               {editingSession?.id === session.id ? (
                 // Edit mode
-                <VStack spacing={2} align="stretch">
+                <Box>
                   <Input
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
@@ -139,33 +139,34 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                       }
                     }}
                     autoFocus
+                    mb={2}
                   />
-                  <HStack spacing={2}>
-                    <Button size="xs" colorScheme="blue" onClick={handleSaveTitle}>
+                  <Flex>
+                    <Button size="xs" colorScheme="blue" onClick={handleSaveTitle} mr={2}>
                       Save
                     </Button>
                     <Button size="xs" variant="ghost" onClick={handleCancelEdit}>
                       Cancel
                     </Button>
-                  </HStack>
-                </VStack>
+                  </Flex>
+                </Box>
               ) : (
                 // Display mode
-                <HStack justify="space-between" align="start">
-                  <VStack align="start" spacing={1} flex={1}>
+                <Flex justify="space-between" align="start">
+                  <Box flex={1}>
                     <Text
                       fontSize="sm"
                       fontWeight="medium"
-                      noOfLines={2}
                       wordBreak="break-word"
                       color={currentSession?.id === session.id ? useColorModeValue('blue.800', 'white') : useColorModeValue('gray.800', 'gray.100')}
+                      style={{ marginBottom: 2 }}
                     >
                       {session.title}
                     </Text>
                     <Text fontSize="xs" color={useColorModeValue('gray.500', 'gray.400')}>
                       {formatDate(session.updated_at)}
                     </Text>
-                  </VStack>
+                  </Box>
                   <MenuRoot>
                     <MenuTrigger asChild>
                       <IconButton
@@ -181,7 +182,6 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                       <MenuItem
                         closeOnSelect
                         value="edit-title"
-                        gap={2}
                         py={2}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -197,7 +197,6 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                         <MenuItem
                           closeOnSelect
                           value="delete-blocked"
-                          gap={2}
                           py={2}
                           color="gray.400"
                           style={{ cursor: "not-allowed" }}
@@ -210,7 +209,6 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                         <MenuItem
                           closeOnSelect
                           value="delete-session"
-                          gap={2}
                           py={2}
                           color="red.500"
                           onClick={(e) => {
@@ -225,12 +223,12 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
                       )}
                     </MenuContent>
                   </MenuRoot>
-                </HStack>
+                </Flex>
               )}
             </Box>
           ))
         )}
-      </VStack>
+      </Box>
 
       {/* Delete Confirmation Dialog */}
       <DialogRoot
@@ -245,25 +243,24 @@ const ChatSessionList: React.FC<ChatSessionListProps> = ({
             <DialogTitle color="red.600">Delete Chat Session</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <VStack gap={4} align="stretch">
-              <Text color="red.600" fontWeight="medium">
+            <Box>
+              <Text color="red.600" fontWeight="medium" mb={2}>
                 Warning: This action cannot be undone!
               </Text>
-              <Text>
+              <Text mb={2}>
                 Are you sure you want to delete <strong>"{sessionToDelete?.title}"</strong>?
               </Text>
-              
-              <Text fontSize="sm" color="gray.600" fontWeight="medium">
+              <Text fontSize="sm" color="gray.600" fontWeight="medium" mb={2}>
                 This action will:
               </Text>
-              <VStack align="start" gap={1} ml={4}>
+              <Box ml={4} mb={2}>
                 <Text fontSize="sm" color="gray.600">• Remove the chat session from your history</Text>
                 <Text fontSize="sm" color="gray.600">• Delete all messages in this session</Text>
                 <Text fontSize="sm" color="red.600" fontWeight="bold">• This action cannot be undone</Text>
-              </VStack>
-            </VStack>
+              </Box>
+            </Box>
           </DialogBody>
-          <DialogFooter gap={2}>
+          <DialogFooter>
             <DialogActionTrigger asChild>
               <Button variant="outline">
                 Cancel

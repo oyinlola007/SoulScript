@@ -7,7 +7,7 @@ from sqlmodel import Session, delete
 from app.core.config import settings
 from app.core.db import engine, init_db
 from app.main import app
-from app.models import Item, User
+from app.models import Item, User, ChatSession, ChatMessage
 from app.tests.utils.user import authentication_token_from_email
 from app.tests.utils.utils import get_superuser_token_headers
 
@@ -20,6 +20,10 @@ def db() -> Generator[Session, None, None]:
         statement = delete(Item)
         session.execute(statement)
         statement = delete(User)
+        session.execute(statement)
+        statement = delete(ChatMessage)
+        session.execute(statement)
+        statement = delete(ChatSession)
         session.execute(statement)
         session.commit()
 

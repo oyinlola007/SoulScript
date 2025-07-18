@@ -7,7 +7,6 @@ import {
   type ApiError,
   LoginService,
   type UserPublic,
-  type UserRegister,
   UsersService,
 } from "@/client"
 import { handleError } from "@/utils"
@@ -27,7 +26,7 @@ const useAuth = () => {
   })
 
   const signUpMutation = useMutation({
-    mutationFn: (data: UserRegister) =>
+    mutationFn: (data: any) =>
       UsersService.registerUser({ requestBody: data }),
 
     onSuccess: () => {

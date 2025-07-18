@@ -2,13 +2,18 @@ import { Box, Container, Text } from "@chakra-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 
 import useAuth from "@/hooks/useAuth"
+import AnonymousChatInterface from "@/components/Chat/AnonymousChatInterface"
 
 export const Route = createFileRoute("/_layout/")({
-  component: Dashboard,
+  component: DashboardOrLanding,
 })
 
-function Dashboard() {
+function DashboardOrLanding() {
   const { user: currentUser } = useAuth()
+
+  if (!currentUser) {
+    return <AnonymousChatInterface />
+  }
 
   return (
     <>

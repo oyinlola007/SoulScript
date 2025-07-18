@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Box, VStack, HStack, Text, Avatar, Flex, Spinner } from '@chakra-ui/react';
+import { Box, Text, Spinner, Flex } from '@chakra-ui/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChatMessage } from '../../types/chat';
@@ -22,11 +22,6 @@ function useChatScroll(dep: any) {
 
 const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
   const chatScrollRef = useChatScroll(messages[messages.length - 1]?.content);
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   if (messages.length === 0) {
     return (
@@ -64,52 +59,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
                 {message.content}
               </Text>
             ) : (
-              <Box
-                fontSize="sm"
-                sx={{
-                  '& h1, & h2, & h3, & h4, & h5, & h6': {
-                    fontWeight: 'bold',
-                    mb: 2,
-                    mt: 3,
-                  },
-                  '& h1': { fontSize: 'lg' },
-                  '& h2': { fontSize: 'md' },
-                  '& h3, & h4, & h5, & h6': { fontSize: 'sm' },
-                  '& p': { mb: 2 },
-                  '& ul, & ol': { mb: 2, pl: 4 },
-                  '& li': { mb: 1 },
-                  '& code': {
-                    bg: useColorModeValue('gray.200', 'gray.800'),
-                    px: 1,
-                    py: 0.5,
-                    borderRadius: 'sm',
-                    fontSize: 'xs',
-                    fontFamily: 'mono',
-                  },
-                  '& pre': {
-                    bg: useColorModeValue('gray.100', 'gray.900'),
-                    p: 2,
-                    borderRadius: 'md',
-                    overflow: 'auto',
-                    mb: 2,
-                  },
-                  '& pre code': {
-                    bg: 'transparent',
-                    p: 0,
-                  },
-                  '& blockquote': {
-                    borderLeft: '3px solid',
-                    borderColor: useColorModeValue('gray.300', 'gray.600'),
-                    pl: 3,
-                    ml: 0,
-                    mb: 2,
-                    fontStyle: 'italic',
-                  },
-                  '& strong': { fontWeight: 'bold' },
-                  '& em': { fontStyle: 'italic' },
-                  '& a': { color: useColorModeValue('blue.500', 'blue.300'), textDecoration: 'underline' },
-                }}
-              >
+              <Box fontSize="sm">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {message.content}
                 </ReactMarkdown>
@@ -118,7 +68,6 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
           </Box>
         </Box>
       ))}
-      
       {/* AI Loading Indicator */}
       {isLoading && (
         <Box
@@ -134,18 +83,17 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading }) => {
             borderRadius="lg"
             maxW="100%"
           >
-            <HStack spacing={2}>
-              <Spinner size="sm" color={useColorModeValue('blue.500', 'blue.300')} />
+            <Flex align="center">
+              <Spinner size="sm" color={useColorModeValue('blue.500', 'blue.300')} style={{ marginRight: 8 }} />
               <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.300')}>
                 AI is thinking...
               </Text>
-            </HStack>
+            </Flex>
           </Box>
         </Box>
       )}
     </Box>
   );
-
 };
 
 export default ChatMessages; 

@@ -31,6 +31,12 @@ interface UserRegisterForm extends UserRegister {
   confirm_password: string
 }
 
+function getAnonSessionId() {
+  // Try to get anon_session_id from cookie
+  const match = document.cookie.match(/(?:^|; )anon_session_id=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
 function SignUp() {
   const { signUpMutation } = useAuth()
   const {
@@ -50,7 +56,8 @@ function SignUp() {
   })
 
   const onSubmit: SubmitHandler<UserRegisterForm> = (data) => {
-    signUpMutation.mutate(data)
+    const anon_session_id = getAnonSessionId()
+    signUpMutation.mutate({ user_in: { ...data }, anon_session_id })
   }
 
   return (
