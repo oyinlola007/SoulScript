@@ -1,7 +1,7 @@
 import { Box, Container, Text } from "@chakra-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 
-import useAuth from "@/hooks/useAuth"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import AnonymousChatInterface from "@/components/Chat/AnonymousChatInterface"
 
 export const Route = createFileRoute("/_layout/")({
@@ -11,10 +11,17 @@ export const Route = createFileRoute("/_layout/")({
 function DashboardOrLanding() {
   const { user: currentUser } = useAuth()
 
+  // Guard: if the user is logged in but the user data hasn't loaded yet, render nothing (or a loader)
+  if (isLoggedIn() && typeof currentUser === "undefined") {
+    return null
+  }
+
+  // Not logged in – show anonymous landing/chat
   if (!currentUser) {
     return <AnonymousChatInterface />
   }
 
+  // Logged in and user data available – show dashboard greeting
   return (
     <>
       <Container maxW="full">
