@@ -1,4 +1,4 @@
-# SoulScript: Spiritual Chatbot Platform
+# SoulScript: Multiplatform Chatbot
 
 **Built on the [FastAPI Full Stack Template](https://github.com/fastapi/full-stack-fastapi-template)**
 
